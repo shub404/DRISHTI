@@ -25,8 +25,8 @@ class _UserMainScreenState extends State<UserMainScreen> {
     // All pages are instantiated once and kept alive as user switches tabs
     _pages = [
       HomePage(id: widget.id),
-      ReportIssuePage(id: widget.id),
       TrackIssuePage(id: widget.id),
+      ReportIssuePage(id: widget.id),
       MyCommunityPage(id: widget.id),
       SettingsPage(id: widget.id),
     ];
@@ -67,14 +67,14 @@ class _UserMainScreenState extends State<UserMainScreen> {
               label: 'DASHBOARD',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.add_box_outlined),
-              activeIcon: Icon(Icons.add_box),
-              label: 'REPORT',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.assignment_outlined),
               activeIcon: Icon(Icons.assignment),
               label: 'MY REPORTS',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_box_outlined),
+              activeIcon: Icon(Icons.add_box),
+              label: 'REPORT',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.map_outlined),

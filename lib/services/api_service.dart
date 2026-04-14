@@ -57,9 +57,10 @@ class ApiService {
     }
   }
 
-  // ── Text-only → Category (used by Admin AUTO-SORT) ───────────────────────
+  // ── Multi-modal / Text → Category (used by Admin AUTO-SORT) ───────────────────
   static Future<Map<String, dynamic>> categorizeFromText({
     required String description,
+    String? imageUrl,
     double lat = 0.0,
     double lon = 0.0,
   }) async {
@@ -69,9 +70,14 @@ class ApiService {
           .post(
             Uri.parse('$base/categorize'),
             headers: {'Content-Type': 'application/json'},
-            body: json.encode({'text_input': description, 'lat': lat, 'lon': lon}),
+            body: json.encode({
+              'text_input': description,
+              'image_url': imageUrl,
+              'lat': lat,
+              'lon': lon
+            }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -79,7 +85,7 @@ class ApiService {
         throw Exception('Backend ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Text categorization failed: $e');
+      throw Exception('Categorization failed: $e');
     }
   }
 }

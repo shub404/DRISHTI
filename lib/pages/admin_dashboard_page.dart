@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sih/pages/admin_analytics_page.dart';
 import 'package:sih/pages/admin_issue_view_page.dart';
 import 'package:sih/pages/aadhar_login.dart';
 import 'package:sih/pages/resolved_issues_page.dart';
@@ -154,8 +155,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                         countColor: AppTheme.inkyNavy,
                         buttonLabel: 'MANAGE',
                         filled: true,
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const AdminIssueViewPage())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AdminIssueViewPage()),
+                        ).then((_) => _loadCounts()),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -171,11 +174,31 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                         countColor: Colors.green.shade700,
                         buttonLabel: 'VIEW',
                         filled: false,
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => const ResolvedIssuesPage())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ResolvedIssuesPage()),
+                        ).then((_) => _loadCounts()),
                       ),
                     ),
                   ],
+                ),
+
+                const SizedBox(height: 12),
+                
+                // ── Analytics full-width tile ──
+                _dashTile(
+                  icon: Icons.bar_chart_outlined,
+                  iconColor: Colors.deepPurple.shade700,
+                  title: 'ANALYTICS',
+                  subtitle: 'Category & status trends',
+                  count: null, // Total is combined in the analytics page anyway
+                  countColor: Colors.deepPurple.shade700,
+                  buttonLabel: 'VIEW CHARTS',
+                  filled: false,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AdminAnalyticsPage()),
+                  ).then((_) => _loadCounts()),
                 ),
 
                 const SizedBox(height: 32),

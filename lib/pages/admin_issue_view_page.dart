@@ -16,11 +16,14 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   final supabase = Supabase.instance.client;
 
   final List<String> categories = [
-    'ALL', 'ROAD', 'WATER', 'ELECTRICITY', 'SANITATION', 'UNCATEGORISED'
+    'ALL', 'ROAD', 'WATER', 'ELECTRICITY', 'SANITATION',
+    'TREE', 'STRAY ANIMALS', 'NOISE', 'TRAFFIC', 'BUILDING',
+    'FIRE HAZARD', 'PUBLIC HEALTH', 'CRIME', 'FLOOD DRAINAGE', 'UNCATEGORISED'
   ];
   String selectedCategory = 'ALL';
 
   final Map<String, String> _updatingMap = {};
+  final Set<String> _optimisticallyHidden = {}; // Track IDs to hide immediately
   bool _isCategorizing = false;
   late final Stream<List<Map<String, dynamic>>> _issueStream;
 
@@ -280,7 +283,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                             }
 
                             // Update Supabase with all completion details
-                            await supabase.from('issues').update({
+                            final response = await supabase.from('issues').update({
                               'status': 'COMPLETED',
                               'completion_note':
                                   noteCtrl.text.trim(),
@@ -291,9 +294,16 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                                       ? null
                                       : authorityCtrl.text.trim(),
                               'completion_proof_url': proofUrl,
-                            }).eq('id', issueId);
+                            }).eq('id', issueId).select();
+
+                            if (response.isEmpty) {
+                              throw Exception('Issue not found or no permission to update.');
+                            }
 
                             if (mounted) {
+                              setState(() {
+                                _optimisticallyHidden.add(issueId);
+                              });
                               Navigator.of(dialogCtx).pop(); // close dialog
                               _refreshData(); // Force UI sync
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -334,8 +344,20 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   Future<void> _updateIssueStatus(String id, String newStatus) async {
     setState(() => _updatingMap[id] = newStatus);
     try {
-      await supabase.from('issues').update({'status': newStatus}).eq('id', id);
+      final response = await supabase
+          .from('issues')
+          .update({'status': newStatus})
+          .eq('id', id)
+          .select();
+
+      if (response.isEmpty) {
+        throw Exception('Issue not found or update failed.');
+      }
+
       if (mounted) {
+        setState(() {
+          _optimisticallyHidden.add(id);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(children: [
@@ -367,6 +389,180 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // REJECTION LOG DIALOG — opens before marking REJECTED
+  // ─────────────────────────────────────────────────────────────────────────
+  Future<void> _showRejectDialog(String issueId) async {
+    final reasonCtrl = TextEditingController();
+    final authorityCtrl = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: const RoundedRectangleBorder(),
+              titlePadding: EdgeInsets.zero,
+              title: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade800,
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.block_outlined, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'REJECTION LOG',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              contentPadding: const EdgeInsets.all(20),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('REASON FOR REJECTION',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: AppTheme.pencilGrey)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: reasonCtrl,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        hintText: 'Describe why this issue is being rejected...',
+                        hintStyle: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('REJECTED BY (AUTHORITY)',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: AppTheme.pencilGrey)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: authorityCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. Sanitation Department Head',
+                        hintStyle: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    const Text('DATE OF REJECTION',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                            color: AppTheme.pencilGrey)),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppTheme.borderInk),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_outlined,
+                                size: 16, color: AppTheme.inkyNavy),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('CANCEL',
+                      style: TextStyle(color: AppTheme.pencilGrey, fontSize: 11)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                    shape: const RoundedRectangleBorder(),
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (reasonCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please provide a reason.'), backgroundColor: Colors.red),
+                            );
+                            return;
+                          }
+                          setDialogState(() => isSaving = true);
+                          try {
+                            final resp = await supabase.from('issues').update({
+                              'status': 'REJECTED',
+                              'rejection_note': reasonCtrl.text.trim(),
+                              'rejection_date': '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                              'rejection_authority': authorityCtrl.text.trim().isEmpty ? null : authorityCtrl.text.trim(),
+                            }).eq('id', issueId).select();
+
+                            if (resp.isEmpty) throw Exception('Update failed');
+
+                            if (mounted) {
+                              setState(() => _optimisticallyHidden.add(issueId));
+                              Navigator.of(dialogCtx).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Issue REJECTED'), backgroundColor: Colors.red),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => isSaving = false);
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        },
+                  child: Text(isSaving ? 'SAVING...' : 'CONFIRM REJECT',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // AUTO-SORT
   // ─────────────────────────────────────────────────────────────────────────
   Future<void> _categorizeAll() async {
@@ -392,27 +588,45 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
       for (final issue in uncategorised) {
         final String id = issue['id'].toString();
         final String description = issue['description'] ?? '';
+        final String? imageUrl = issue['image_url'];
         final double lat = (issue['latitude'] ?? 0.0).toDouble();
         final double lon = (issue['longitude'] ?? 0.0).toDouble();
 
         String category = 'UNCATEGORISED';
+        double confidence = 0.0;
+        String priority = 'Low';
         try {
           final result = await ApiService.categorizeFromText(
             description: description,
+            imageUrl: imageUrl,
             lat: lat,
             lon: lon,
           );
           category = _mapCategory(result['category']?.toString() ?? '');
+          confidence = (result['confidence'] as num?)?.toDouble() ?? 0.0;
+          priority = (result['priority']?.toString() ?? 'Low');
         } catch (_) {
           category = _keywordCategorize(description);
+          confidence = category != 'UNCATEGORISED' ? 60.0 : 0.0;
+          // default keyword mapping
+          priority = 'Low'; 
         }
 
         if (category != 'UNCATEGORISED') {
-          await supabase
+          debugPrint('[AUTO-SORT] Updating id=$id → category=$category (${confidence.toStringAsFixed(1)}%) | Priority: $priority');
+          final updateResp = await supabase
               .from('issues')
-              .update({'category': category})
-              .eq('id', id);
-          count++;
+              .update({'category': category, 'ai_confidence': confidence, 'priority': priority})
+              .eq('id', id)
+              .select();
+          if (updateResp.isEmpty) {
+            debugPrint('[AUTO-SORT] ⚠️ Update returned empty! RLS may be blocking category updates.');
+          } else {
+            debugPrint('[AUTO-SORT] ✅ Success: $updateResp');
+            count++;
+          }
+        } else {
+          debugPrint('[AUTO-SORT] ⏩ Skipping id=$id (no matching category for: "$description")');
         }
       }
 
@@ -436,34 +650,44 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   }
 
   String _mapCategory(String pred) {
-    final p = pred.toLowerCase();
-    if (p.contains('pothole') || p.contains('road')) return 'ROAD';
-    if (p.contains('water')) return 'WATER';
-    if (p.contains('light') || p.contains('electr')) return 'ELECTRICITY';
-    if (p.contains('garbage') || p.contains('sanit') || p.contains('waste'))
-      return 'SANITATION';
+    final p = pred.toUpperCase().trim();
+    const valid = [
+      'ROAD', 'WATER', 'ELECTRICITY', 'SANITATION',
+      'TREE', 'STRAY ANIMALS', 'NOISE', 'TRAFFIC', 'BUILDING',
+      'FIRE HAZARD', 'PUBLIC HEALTH', 'CRIME', 'FLOOD DRAINAGE'
+    ];
+    if (valid.contains(p)) return p;
+    if (p.contains('ROAD') || p.contains('POTHOLE')) return 'ROAD';
+    if (p.contains('WATER') || p.contains('LEAK')) return 'WATER';
+    if (p.contains('ELECTR') || p.contains('LIGHT')) return 'ELECTRICITY';
+    if (p.contains('SANIT') || p.contains('GARBAGE') || p.contains('TRASH')) return 'SANITATION';
+    if (p.contains('TREE') || p.contains('PARK')) return 'TREE';
+    if (p.contains('STRAY') || p.contains('ANIMAL')) return 'STRAY ANIMALS';
+    if (p.contains('NOISE') || p.contains('SOUND')) return 'NOISE';
+    if (p.contains('TRAFFIC') || p.contains('SIGNAL')) return 'TRAFFIC';
+    if (p.contains('BUILD') || p.contains('CONSTRUCT')) return 'BUILDING';
+    if (p.contains('FIRE') || p.contains('GAS') || p.contains('HAZARD')) return 'FIRE HAZARD';
+    if (p.contains('HEALTH') || p.contains('MOSQUITO')) return 'PUBLIC HEALTH';
+    if (p.contains('CRIME') || p.contains('CCTV')) return 'CRIME';
+    if (p.contains('DRAIN') || p.contains('FLOOD')) return 'FLOOD DRAINAGE';
     return 'UNCATEGORISED';
   }
 
   String _keywordCategorize(String text) {
     final t = text.toLowerCase();
-    if (t.contains('pothole') ||
-        t.contains('road') ||
-        t.contains('pavement') ||
-        t.contains('street')) return 'ROAD';
-    if (t.contains('water') ||
-        t.contains('flood') ||
-        t.contains('pipe') ||
-        t.contains('drain')) return 'WATER';
-    if (t.contains('light') ||
-        t.contains('electricity') ||
-        t.contains('power') ||
-        t.contains('pole')) return 'ELECTRICITY';
-    if (t.contains('garbage') ||
-        t.contains('waste') ||
-        t.contains('trash') ||
-        t.contains('sanit') ||
-        t.contains('dirty')) return 'SANITATION';
+    if (t.contains('pothole') || t.contains('road') || t.contains('pavement') || t.contains('sadak') || t.contains('gaddha')) return 'ROAD';
+    if (t.contains('water') || t.contains('leak') || t.contains('paani') || t.contains('pipe') || t.contains('tanki')) return 'WATER';
+    if (t.contains('light') || t.contains('electric') || t.contains('bijli') || t.contains('pole') || t.contains('dark')) return 'ELECTRICITY';
+    if (t.contains('garbage') || t.contains('trash') || t.contains('waste') || t.contains('kachra') || t.contains('smell')) return 'SANITATION';
+    if (t.contains('tree') || t.contains('park') || t.contains('ped') || t.contains('fallen') || t.contains('bench')) return 'TREE';
+    if (t.contains('dog') || t.contains('cow') || t.contains('animal') || t.contains('stray') || t.contains('aawara')) return 'STRAY ANIMALS';
+    if (t.contains('noise') || t.contains('loud') || t.contains('shor') || t.contains('speaker')) return 'NOISE';
+    if (t.contains('traffic') || t.contains('signal') || t.contains('parking') || t.contains('jam')) return 'TRAFFIC';
+    if (t.contains('building') || t.contains('construction') || t.contains('encroach') || t.contains('wall')) return 'BUILDING';
+    if (t.contains('fire') || t.contains('aag') || t.contains('gas') || t.contains('smoke') || t.contains('hazard')) return 'FIRE HAZARD';
+    if (t.contains('health') || t.contains('mosquito') || t.contains('disease') || t.contains('bimari')) return 'PUBLIC HEALTH';
+    if (t.contains('crime') || t.contains('cctv') || t.contains('unsafe') || t.contains('theft')) return 'CRIME';
+    if (t.contains('drain') || t.contains('naali') || t.contains('waterlog') || t.contains('barish')) return 'FLOOD DRAINAGE';
     return 'UNCATEGORISED';
   }
 
@@ -610,6 +834,10 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                 }
 
                 final filtered = snapshot.data!.where((i) {
+                  final id = i['id'].toString();
+                  // Hide if optimistically marked as done
+                  if (_optimisticallyHidden.contains(id)) return false;
+
                   final status =
                       (i['status'] ?? '').toString().toUpperCase().trim();
                   final cat =
@@ -671,9 +899,18 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
         DateTime.tryParse(issue['created_at'] ?? '') ?? DateTime.now();
     final isUpdating = _updatingMap.containsKey(id);
 
+    final priority = (issue['priority'] ?? 'Low').toString();
+    final upvotes = (issue['upvotes'] ?? 0) as int;
+
     final borderColor = status == 'IN PROGRESS'
         ? Colors.orange.shade600
         : AppTheme.borderInk;
+        
+    Color priorityColor = Colors.grey;
+    if (priority == 'Critical') priorityColor = Colors.red.shade800;
+    else if (priority == 'High') priorityColor = Colors.orange.shade800;
+    else if (priority == 'Medium') priorityColor = Colors.amber.shade700;
+    else priorityColor = Colors.green.shade700;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -708,12 +945,54 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                           letterSpacing: 0.5),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      category,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.inkyNavy),
+                    Row(
+                      children: [
+                        Text(
+                          category,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.inkyNavy),
+                        ),
+                        if (issue['ai_confidence'] != null && (issue['ai_confidence'] as num) > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(2),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Text(
+                              'AI: ${(issue['ai_confidence'] as num).toStringAsFixed(0)}%',
+                              style: TextStyle(fontSize: 8, color: Colors.blue.shade700, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: priorityColor.withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(2),
+                            color: priorityColor.withOpacity(0.1),
+                          ),
+                          child: Text('PRIORITY: ${priority.toUpperCase()}', style: TextStyle(fontSize: 8, color: priorityColor, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                        ),
+                        const SizedBox(width: 8),
+                        if (upvotes > 0)
+                          Row(
+                            children: [
+                              Icon(Icons.thumb_up_alt_outlined, size: 10, color: AppTheme.pencilGrey),
+                              const SizedBox(width: 2),
+                              Text('$upvotes', style: const TextStyle(fontSize: 10, color: AppTheme.pencilGrey, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -871,8 +1150,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                             padding:
                                 const EdgeInsets.symmetric(vertical: 8),
                             shape: const RoundedRectangleBorder()),
-                        onPressed: () =>
-                            _updateIssueStatus(id, 'REJECTED'),
+                        onPressed: () => _showRejectDialog(id),
                         icon: const Icon(Icons.block_outlined, size: 13),
                         label: const Text('REJECT',
                             style: TextStyle(

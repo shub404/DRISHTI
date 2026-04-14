@@ -99,6 +99,33 @@ class _MyCommunityPageState extends State<MyCommunityPage> {
     }
   }
 
+  /// 🔹 Upvote / Support an issue
+  Future<void> _upvoteIssue(String id, int currentUpvotes, int index) async {
+    try {
+      final newUpvotes = currentUpvotes + 1;
+      
+      // Optimistic UI update
+      setState(() {
+        _nearbyIssues[index]['upvotes'] = newUpvotes;
+      });
+      
+      await supabase
+          .from('issues')
+          .update({'upvotes': newUpvotes})
+          .eq('id', id);
+          
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Support recorded. Priority raised!'), backgroundColor: Colors.teal),
+      );
+    } catch (e) {
+      debugPrint("Upvote error: $e");
+      // Revert optimism if failed
+      setState(() {
+        _nearbyIssues[index]['upvotes'] = currentUpvotes;
+      });
+    }
+  }
+
   /// 🔹 Distance calculation (Haversine)
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const earthRadius = 6371000; // meters
@@ -172,10 +199,13 @@ class _MyCommunityPageState extends State<MyCommunityPage> {
                           itemCount: _nearbyIssues.length,
                           itemBuilder: (context, index) {
                             final issue = _nearbyIssues[index];
+                            final id = issue['id'].toString();
                             final category = (issue['category'] ?? 'UNCATEGORISED').toString().toUpperCase();
                             final description = issue['description'] ?? 'No detail provided.';
                             final distance = issue['distance'] as double;
                             final imageUrl = issue['image_url'];
+                            final upvotes = (issue['upvotes'] ?? 0) as int;
+                            final status = (issue['status'] ?? 'SUBMITTED').toString().toUpperCase();
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 16),
@@ -237,6 +267,52 @@ class _MyCommunityPageState extends State<MyCommunityPage> {
                                             style: Theme.of(context).textTheme.bodySmall,
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(color: AppTheme.borderInk),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  status,
+                                                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                onTap: status != 'COMPLETED' ? () => _upvoteIssue(id, upvotes, index) : null,
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: status == 'COMPLETED' ? Colors.grey.shade200 : AppTheme.inkyNavy.withOpacity(0.05),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        Icons.thumb_up_alt_outlined, 
+                                                        size: 14, 
+                                                        color: status == 'COMPLETED' ? Colors.grey : AppTheme.inkyNavy
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        '$upvotes Support',
+                                                        style: TextStyle(
+                                                          fontSize: 10, 
+                                                          fontWeight: FontWeight.bold, 
+                                                          color: status == 'COMPLETED' ? Colors.grey : AppTheme.inkyNavy
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              )
+                                            ],
                                           ),
                                         ],
                                       ),
