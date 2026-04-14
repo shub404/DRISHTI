@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "943733714271",
+    "project_id": "smartindiahackathon-749af",
+    "storage_bucket": "smartindiahackathon-749af.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:943733714271:android:f22cd29f6faddbec059aea",
+        "android_client_info": {
+          "package_name": "com.example.sih"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDsV2I1KRdr2FNnFNwdTcd9B5aVtuZlgpk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
