@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sih/pages/admin_login_page.dart';
-import 'package:sih/pages/home_page.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:sih/pages/user_main_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AadharLoginPage extends StatefulWidget {
   const AadharLoginPage({super.key});
@@ -17,52 +15,59 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
+  final supabase = Supabase.instance.client;
+
   void _handleSubmit() async {
-  if (_formKey.currentState?.validate() ?? false) {
-    setState(() => _isLoading = true);
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
 
-    try {
-      String aadharNumber = _aadharController.text.trim();
+      try {
+        String aadharNumber = _aadharController.text.trim();
 
-      if (aadharNumber.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid Aadhar number'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } else {
-        await FirebaseFirestore.instance.collection('users').doc(aadharNumber).set({
-          'aadhar': aadharNumber,
-        });
+        if (aadharNumber.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid Aadhar number'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else {
+          // Register/Sync citizen profile in Supabase
+          await supabase.from('profiles').upsert({
+            'id': aadharNumber,
+            'full_name': 'Citizen', // Placeholder for simulation
+          });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login successful'),
-            backgroundColor: Colors.green,
-          ),
-        );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Login successful'),
+                backgroundColor: Colors.green,
+              ),
+            );
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (BuildContext context) => HomePage(id: aadharNumber),
-          ),
-        );
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (BuildContext context) => UserMainScreen(id: aadharNumber),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
-}
-
 
   @override
   void dispose() {
@@ -109,12 +114,16 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
                                   labelText: 'Aadhar Number',
                                   border: OutlineInputBorder(),
                                   prefixIcon: Icon(Icons.account_box),
-                                ), 
+                                ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Please enter your Aadhar number';
                                   }
+                                  if (value.length < 12) {
+                                    return 'Aadhar must be 12 digits';
+                                  }
+                                  return null;
                                 },
                                 maxLength: 12,
                               ),
@@ -141,15 +150,14 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
                       ),
                     ),
                   ),
-
                   Padding(
                     padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
                     child: GestureDetector(
-                      child: Text("ADMIN?"),
+                      child: const Text("ADMIN?", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context)=> AdminLoginPage()));
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminLoginPage()));
                       },
-                      ),
+                    ),
                   ),
                 ],
               ),

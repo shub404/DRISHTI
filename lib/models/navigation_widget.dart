@@ -4,6 +4,7 @@ import 'package:sih/pages/my_community.dart';
 import 'package:sih/pages/report_issue_page.dart';
 import 'package:sih/pages/settings_page.dart';
 import 'package:sih/pages/track_issue.dart';
+import 'package:sih/theme/app_theme.dart';
 
 class NavigationDrawerWIdget extends StatefulWidget {
   String? id;
@@ -14,83 +15,105 @@ class NavigationDrawerWIdget extends StatefulWidget {
 }
 
 class _NavigationDrawerWIdgetState extends State<NavigationDrawerWIdget> {
-  Widget buildMenuItem({
-    required String text,
-    required IconData icon,
-    required Widget navigation,
-
-  }) {
-    const color = Colors.white;
-    const hoverColor = Colors.white70;
-
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(text, style: const TextStyle(color: color)),
-      hoverColor: hoverColor,
-      onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context)=> navigation));
-      },
-    );
-  }
-  
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: Container(
-        color: const Color(0xFF1976D2),
+        color: AppTheme.paperBackground,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: <Widget>[
-             DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF1565C0),
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppTheme.inkyNavy,
               ),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
+                  const Icon(Icons.security, color: Colors.white, size: 32),
+                  const SizedBox(height: 12),
+                  const Text(
                     'DRISHTI',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.0,
                     ),
                   ),
                   Text(
-                    'AADHAR ID: ${widget.id}',
+                    'OFFICIAL RECORD SYSTEM',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 10,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'MAIN MENU',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppTheme.inkyNavy.withOpacity(0.5),
+                  fontSize: 10,
+                ),
+              ),
+            ),
             buildMenuItem(
-              text: 'Home',
-              icon: Icons.home,
+              text: 'DASHBOARD',
+              icon: Icons.home_outlined,
               navigation: HomePage(id: widget.id),
             ),
             buildMenuItem(
-              text: 'Report Issue',
-              icon: Icons.report_problem,
+              text: 'REPORT INCIDENT',
+              icon: Icons.add_chart_outlined,
               navigation: ReportIssuePage(id: widget.id),
             ),
             buildMenuItem(
-              text: 'Track Issue',
-              icon: Icons.track_changes,
+              text: 'TRACK STATUS',
+              icon: Icons.assignment_outlined,
               navigation: TrackIssuePage(id: widget.id),
             ),
             buildMenuItem(
-              text: 'My Community',
-              icon: Icons.people,
+              text: 'LOCAL RECORDS',
+              icon: Icons.map_outlined,
               navigation: MyCommunityPage(id: widget.id),
             ),
+            const Divider(),
             buildMenuItem(
-              text: 'Settings',
-              icon: Icons.settings,
+              text: 'SETTINGS',
+              icon: Icons.settings_outlined,
               navigation: SettingsPage(id: widget.id),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget buildMenuItem({
+    required String text,
+    required IconData icon,
+    required Widget navigation,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.inkyNavy, size: 20),
+      title: Text(
+        text,
+        style: const TextStyle(
+          color: AppTheme.inkyNavy,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
+        ),
+      ),
+      onTap: () {
+        Navigator.pop(context); // Close drawer first
+        Navigator.push(context, MaterialPageRoute(builder: (context) => navigation));
+      },
     );
   }
 }

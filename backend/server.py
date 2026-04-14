@@ -12,15 +12,15 @@ async def complaint(
     text_input: str = Form(None),
     use_voice: bool = Form(False)
 ):
-    # Save uploaded file temporarily
+
     img_path = f"temp_{file.filename}"
     with open(img_path, "wb") as f:
         f.write(await file.read())
 
-    # Run the processing
+
     process_single_complaint(img_path, lat, lon, text_input=text_input, use_voice=use_voice)
 
-    # Return results as JSON
+
     return JSONResponse({
         "complaints": complaints,               # grouped complaints
         "human_verification": human_verification  # low-confidence cases

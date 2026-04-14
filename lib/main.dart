@@ -6,18 +6,17 @@ import 'package:sih/pages/home_page.dart';
 import 'package:sih/pages/report_issue_page.dart';
 import 'package:sih/pages/settings_page.dart';
 import 'package:sih/theme/app_theme.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-);
+
+  await Supabase.initialize(
+    url: 'https://mfhmbwwwzsynlnfbjnym.supabase.co',
+    anonKey: 'sb_publishable_KkL_n62HhB4mbOignRqgrQ_Tm6sdorY',
+  );
 
   runApp(const MyApp());
-
 }
 
 class MyApp extends StatelessWidget {
@@ -30,9 +29,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
       initialRoute: '/aadharLogin',
-      routes: {
-        '/aadharLogin': (context) => const AadharLoginPage(),
-      },
+      routes: {'/aadharLogin': (context) => const AadharLoginPage()},
     );
   }
 }

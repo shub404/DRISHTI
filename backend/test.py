@@ -12,9 +12,6 @@ from transformers import CLIPProcessor, CLIPModel
 import numpy as np
 from math import radians, sin, cos, sqrt, atan2
 
-# -----------------------------
-# Labels, Departments, Urgency
-# -----------------------------
 labels = ["StreetLight Broken", "Water leak", "garbage dump", "pothole", "other"]
 department_map = {
     'StreetLight Broken': 'Electricity/Streetlights Dept',
@@ -37,16 +34,11 @@ department_map = {
 urgency_labels = ["Low", "Medium", "High", "Very High"]
 priority_order = {"Very High": 4, "High": 3, "Medium": 2, "Low": 1, "N/A": 0}
 
-# -----------------------------
-# Device and Model
-# -----------------------------
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-# -----------------------------
-# Image transforms and TTA
-# -----------------------------
 transform = transforms.Compose([transforms.Resize((224, 224))])
 
 def apply_tta(image):
@@ -56,9 +48,7 @@ def is_blank_image(image, threshold=10):
     arr = np.array(image.convert("L"))
     return arr.std() < threshold
 
-# -----------------------------
-# Haversine distance
-# -----------------------------
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = radians(lat2 - lat1)
@@ -67,9 +57,7 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * atan2(sqrt(a), sqrt(1-a))
     return R * c
 
-# -----------------------------
-# Grouping & Human verification
-# -----------------------------
+
 complaints = []
 human_verification = []
 group_counter = 1
@@ -94,9 +82,7 @@ def add_complaint(lat, lon, category, dept, confidence, priority, radius=100):
     group_counter += 1
     return gid
 
-# -----------------------------
-# Prediction functions
-# -----------------------------
+
 def predict_image(image, confidence_threshold=0.5):
     image = transform(image)
     if is_blank_image(image):
@@ -133,12 +119,8 @@ def detect_urgency(image, text_input=None):
     confidence = img_conf.item()
     return priority, confidence
 
-# -----------------------------
-# FastAPI setup
-# -----------------------------
 app = FastAPI(title="Civic Complaint Categorizer API")
 
-# Pydantic model for JSON input
 class ComplaintRequest(BaseModel):
     image_url: str
     description: str = ""
@@ -148,17 +130,14 @@ class ComplaintRequest(BaseModel):
 @app.post("/complaint")
 async def categorize_complaint(req: ComplaintRequest):
     try:
-        # Download image from URL
+       
         response = requests.get(req.image_url)
         image = Image.open(io.BytesIO(response.content)).convert("RGB")
-        
-        # Predict category and department
+    
         img_cat, img_dept, img_conf, warning = predict_image(image)
-        
-        # Determine priority
+
         priority, _ = detect_urgency(image)
-        
-        # Add to grouping
+
         gid = add_complaint(req.lat, req.lon, img_cat, img_dept, img_conf, priority)
         
         return JSONResponse({

@@ -14,31 +14,28 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _handleSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
 
-      // Simulate network delay
-      Future.delayed(const Duration(milliseconds: 500), () {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted) return;
         if (_usernameController.text == 'admin' &&
             _passwordController.text == 'admin123') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login successful'),
-              backgroundColor: Colors.green,
-            ),
+          // pushReplacement keeps a clean back-stack — back goes to Aadhar login, not here
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
           );
-          Navigator.push(context, MaterialPageRoute(builder: (context)=> AdminDashboardPage()));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Invalid credentials'),
-              backgroundColor: AppTheme.destructiveRed,
+              backgroundColor: AppTheme.classicCrimson,
             ),
           );
-        }
-        if (mounted) {
           setState(() => _isLoading = false);
         }
       });
@@ -55,96 +52,105 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        icon: const Icon(Icons.arrow_back, color: Colors.white),
-                        label: const Text('Back', style: TextStyle(color: Colors.white)),
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.1),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close, size: 24),
+          onPressed: () => Navigator.pop(context), // returns to Aadhar login
+        ),
+        title: const Text('ADMINISTRATION LOGIN'),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('SECURITY CHECKPOINT',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppTheme.inkyNavy)),
+                  const Divider(),
+                  const SizedBox(height: 24),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text('AUTHORIZATION',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.headlineSmall),
+                            const SizedBox(height: 32),
+                            TextFormField(
+                              controller: _usernameController,
+                              decoration: const InputDecoration(labelText: 'CREDENTIAL ID'),
+                              validator: (v) => v!.isEmpty ? 'Please enter username' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              decoration: InputDecoration(
+                                labelText: 'ACCESS CODE',
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 18),
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                ),
+                              ),
+                              validator: (v) => v!.isEmpty ? 'Please enter password' : null,
+                            ),
+                            const SizedBox(height: 32),
+                            ElevatedButton.icon(
+                              icon: _isLoading
+                                  ? const SizedBox(width: 18, height: 18,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Icon(Icons.admin_panel_settings_outlined),
+                              label: Text(_isLoading ? 'VERIFYING...' : 'GRANT ACCESS'),
+                              onPressed: _isLoading ? null : _handleSubmit,
+                            ),
+                            const SizedBox(height: 24),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.borderInk, width: 0.5),
+                                color: AppTheme.paperBackground,
+                              ),
+                              child: Text(
+                                'SYSTEM ADVISORY: Use authorized credentials only. All access attempts are logged.',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.pencilGrey, height: 1.5),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text('Admin Login',
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.headlineSmall),
-                              const SizedBox(height: 24),
-                              TextFormField(
-                                controller: _usernameController,
-                                decoration: const InputDecoration(labelText: 'Username'),
-                                validator: (value) =>
-                                    value!.isEmpty ? 'Please enter username' : null,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: true,
-                                decoration: const InputDecoration(labelText: 'Password'),
-                                validator: (value) =>
-                                    value!.isEmpty ? 'Please enter password' : null,
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                icon: _isLoading
-                                    ? Container(
-                                        width: 24,
-                                        height: 24,
-                                        padding: const EdgeInsets.all(2.0),
-                                        child: const CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 3,
-                                        ),
-                                      )
-                                    : const Icon(Icons.login),
-                                label: Text(_isLoading ? 'Signing In...' : 'Sign In'),
-                                onPressed: _isLoading ? null : _handleSubmit,
-                                style: Theme.of(context)
-                                    .elevatedButtonTheme
-                                    .style
-                                    ?.copyWith(
-                                      backgroundColor:
-                                          MaterialStateProperty.all(AppTheme.primaryBlue),
-                                    ),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'Demo Credentials:\nUsername: admin\nPassword: admin123',
-                                  style: TextStyle(color: AppTheme.subtleTextColor, height: 1.5),
-                                ),
-                              )
-                            ],
+                  ),
+                  const SizedBox(height: 24),
+                  // ── Switcher: back to Citizen login ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Not an admin? ',
+                          style: TextStyle(color: AppTheme.pencilGrey, fontSize: 13)),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Text(
+                          'CITIZEN LOGIN →',
+                          style: TextStyle(
+                            color: AppTheme.inkyNavy,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
