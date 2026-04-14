@@ -61,45 +61,55 @@ DRISHTI is a full-stack Flutter application built for the **Smart India Hackatho
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     DRISHTI Flutter App                      │
-│                                                             │
-│   Citizen Flow                    Admin Flow                │
-│   ─────────────                   ──────────                │
-│   Aadhar Login / Register         Admin Login               │
-│   Report Issue (photo + GPS)      Issue Dashboard           │
-│   Track My Issues                 Auto-Sort (AI)            │
-│   Community View                  Analytics                 │
-└────────────┬────────────────────────────┬───────────────────┘
-             │                            │
-     ┌───────▼────────┐          ┌────────▼────────┐
-     │   Supabase     │          │  AI Categoriser  │
-     │  (Database +   │          │  FastAPI + CLIP  │
-     │   Realtime)    │          │  HF Space #1     │
-     └───────┬────────┘          └─────────────────┘
-             │
-     ┌───────▼────────────┐
-     │  Face Recognition  │
-     │  Flask + DeepFace  │
-     │  + Roboflow Spoof  │
-     │  HF Space #2       │
-     └────────────────────┘
+  DATA COLLECTION              PROCESSING & ANALYSIS         CLOUD SERVICES
+  ───────────────              ─────────────────────         ──────────────
+  Flutter UI                   HF Space #1                   Supabase
+  ├─ Camera input     ──────►  FastAPI + CLIP model  ──────► ├─ PostgreSQL (issues)
+  ├─ GPS location              ├─ Image classification       ├─ profiles table
+  └─ Text description          ├─ Text fallback              ├─ Realtime subscriptions
+                               └─ Priority detection         └─ Storage (photos)
+
+  AUTHENTICATION               FACE RECOGNITION              INTEGRATION
+  ──────────────               ────────────────              ───────────
+  Supabase profiles            HF Space #2                   Google Maps API
+  ├─ Aadhar + PIN    ──────►  Flask + face_recognition       └─ Location display
+  └─ PIN verify                ├─ Roboflow liveness check
+                               ├─ 128-dim face encoding
+                               └─ Firebase Firestore
+                                  (embedding storage —
+                                   backend-internal only)
+
+  ADMIN DASHBOARD
+  ───────────────
+  Flutter (in-app)
+  ├─ Supabase Realtime feed
+  ├─ Auto-sort → HF Space #1 /categorize
+  └─ Analytics + resolve actions
 ```
 
 ---
 
 ## Tech Stack
 
+### Flutter App
 | Layer | Technology |
 |---|---|
-| Mobile App | Flutter (Dart) |
-| Database & Realtime | Supabase (PostgreSQL + Realtime subscriptions) |
-| Maps | Google Maps Flutter + Geolocator |
-| AI Categorisation | OpenAI CLIP (`clip-vit-base-patch32`) via HuggingFace Transformers |
-| Categorisation API | Python FastAPI, deployed on Hugging Face Spaces (Docker) |
-| Face Recognition | `face_recognition` (dlib), Firebase Firestore for embedding storage |
-| Liveness Detection | Roboflow `face-anti-spoofing` model |
-| Face Auth API | Python Flask, deployed on Hugging Face Spaces (Docker) |
+| Mobile Framework | Flutter (Dart) — cross-platform Android & iOS |
+| Authentication | Supabase (`profiles` table — Aadhar + 6-digit PIN) |
+| Database | Supabase PostgreSQL |
+| Realtime Updates | Supabase Realtime subscriptions |
+| File / Image Storage | Supabase Storage (issue photos) |
+| Maps & Location | Google Maps Flutter + Geolocator |
+| Local Persistence | `path_provider` (draft issues) |
+
+### AI Backends (Hugging Face Spaces — Docker)
+
+| Service | Technology | HF Space |
+|---|---|---|
+| Categorisation API | Python FastAPI + OpenAI CLIP (`clip-vit-base-patch32`) | [`shubpaste404/drishti`](https://huggingface.co/spaces/shubpaste404/drishti) |
+| Face Auth API | Python Flask + `face_recognition` (dlib) | [`pasteshub404/navikarana-backend`](https://huggingface.co/spaces/pasteshub404/navikarana-backend) |
+| Liveness Detection | Roboflow `face-anti-spoofing` (called by Face Auth API) | Serverless via Roboflow |
+| Face Embedding Storage | Firebase Firestore *(used internally by Face Auth API only — Flutter app does not use Firebase)* | — |
 
 ---
 
