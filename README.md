@@ -298,8 +298,7 @@ Verify a citizen's identity during login. Runs liveness check + 128-dim face com
 
 | Citizen Login | Report Issue | Admin Dashboard |
 |---|---|---|
-| ![login](docs/screenshots/login.png) | ![report](docs/screenshots/report.png) | ![admin](docs/screenshots/admin.png) |
-
+| ![login](images/login.jpg) | ![report](images/admin_categorizing.jpg) | ![admin](images/admindashboard.jpg) |
 ---
 
 ## Team
