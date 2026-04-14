@@ -32,7 +32,7 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
   String _captchaText = '';
   final supabase = Supabase.instance.client;
 
-  static const String _registerFaceEndpoint = "https://pasteshub-navikarana-backend.hf.space/register-face";
+  static const String _registerFaceEndpoint = "https://shubpaste404-drishti.hf.space/register-face";
 
   @override
   void initState() {

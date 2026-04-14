@@ -9,17 +9,11 @@ class ApiService {
   // 172.22.9.29 = Physical device LAN IP → update if your PC IP changes
   static const String _emulatorBase  = 'http://10.0.2.2:8000';
   static const String _physicalBase  = 'http://172.22.9.29:8000';
+  static const String _liveBase      = 'https://shubpaste404-drishti.hf.space';
 
-  /// Try emulator URL first; fall back to physical-device LAN IP.
-  /// This makes the same build work on both emulator and physical phone.
+  /// Returns the base URL for the backend API.
   static Future<String> _resolveBase() async {
-    try {
-      final resp = await http
-          .get(Uri.parse('$_emulatorBase/health'))
-          .timeout(const Duration(seconds: 2));
-      if (resp.statusCode < 500) return _emulatorBase;
-    } catch (_) {}
-    return _physicalBase;
+    return _liveBase;
   }
 
   // ── Image + Location + Description → Category ────────────────────────────
@@ -44,7 +38,7 @@ class ApiService {
         ),
       );
 
-      final streamed = await request.send().timeout(const Duration(seconds: 20));
+      final streamed = await request.send().timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 200) {
@@ -77,7 +71,7 @@ class ApiService {
               'lon': lon
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;

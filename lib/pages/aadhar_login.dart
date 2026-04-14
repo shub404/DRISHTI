@@ -25,7 +25,7 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
 
   final supabase = Supabase.instance.client;
 
-  static const String _verifyFaceEndpoint = "https://pasteshub-navikarana-backend.hf.space/login-face";
+  static const String _verifyFaceEndpoint = "https://shubpaste404-drishti.hf.space/login-face";
 
   Future<void> _loginWithFace() async {
     final aadharNumber = _aadharController.text.trim();
