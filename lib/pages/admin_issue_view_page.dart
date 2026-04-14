@@ -829,6 +829,36 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _issueStream,
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_off_outlined,
+                              size: 48, color: AppTheme.pencilGrey),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Could not load issues.\nCheck Supabase RLS policies.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppTheme.pencilGrey),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            snapshot.error.toString(),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 10, color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }

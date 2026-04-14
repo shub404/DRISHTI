@@ -25,7 +25,7 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
 
   final supabase = Supabase.instance.client;
 
-  static const String _verifyFaceEndpoint = "https://shubpaste404-drishti.hf.space/login-face";
+  static const String _verifyFaceEndpoint = "https://pasteshub404-navikarana-backend.hf.space/login-face";
 
   Future<void> _loginWithFace() async {
     final aadharNumber = _aadharController.text.trim();
@@ -70,7 +70,7 @@ class _AadharLoginPageState extends State<AadharLoginPage> {
       request.fields['username'] = aadharNumber;
       request.files.add(await http.MultipartFile.fromPath('image', photo.path));
       
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
       final body = await streamedResponse.stream.bytesToString();
       
       final decoded = jsonDecode(body) as Map<String, dynamic>;

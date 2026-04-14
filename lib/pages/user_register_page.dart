@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 import 'dart:convert';
@@ -26,13 +27,12 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
   bool _isLoading = false;
   bool _obscurePin = true;
   bool _obscureConfirmPin = true;
-  bool _isEmulatorBypass = false;
 
   File? _localPhoto;
   String _captchaText = '';
   final supabase = Supabase.instance.client;
 
-  static const String _registerFaceEndpoint = "https://shubpaste404-drishti.hf.space/register-face";
+  static const String _registerFaceEndpoint = "https://pasteshub404-navikarana-backend.hf.space/register-face";
 
   @override
   void initState() {
@@ -59,9 +59,9 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
       final request = http.MultipartRequest('POST', Uri.parse(_registerFaceEndpoint));
       request.fields['username'] = aadharNumber;
       request.files.add(await http.MultipartFile.fromPath('image', _localPhoto!.path));
-      final streamedResponse = await request.send();
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
       final responseBody = await streamedResponse.stream.bytesToString();
-      if (streamedResponse.statusCode == 200) return null; // Success verification
+      if (streamedResponse.statusCode == 200) return null; // Success
 
       try {
         final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
@@ -69,8 +69,10 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
       } catch (_) {
         return "Face registration failed (status ${streamedResponse.statusCode}).";
       }
+    } on TimeoutException {
+      return "Face server timed out. Please try again.";
     } catch (e) {
-      return "Could not reach the server. Please check your connection.";
+      return "Could not reach the face server: $e";
     }
   }
 
@@ -94,7 +96,7 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
         return;
       }
 
-      if (!_isEmulatorBypass && _localPhoto == null) {
+      if (_localPhoto == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please capture a face photo for Biometric Security'), backgroundColor: AppTheme.classicCrimson),
         );
@@ -126,17 +128,15 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
         }
 
         // Call the Face API to ensure it's a real face & register them
-        if (!_isEmulatorBypass) {
-          final faceError = await _registerFaceOnBackend(aadharNumber);
-          if (faceError != null) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('AI Check Failed: $faceError'), backgroundColor: AppTheme.classicCrimson),
-              );
-              setState(() => _isLoading = false);
-            }
-            return;
+        final faceError = await _registerFaceOnBackend(aadharNumber);
+        if (faceError != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('AI Check Failed: $faceError'), backgroundColor: AppTheme.classicCrimson),
+            );
+            setState(() => _isLoading = false);
           }
+          return;
         }
 
         // Create new profile with PIN
@@ -147,15 +147,69 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registration successful. Welcome!'), backgroundColor: Colors.green),
-          );
-
-          // Head directly into the app
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (BuildContext context) => UserMainScreen(id: aadharNumber),
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => AlertDialog(
+              shape: const RoundedRectangleBorder(),
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'REGISTRATION SUCCESSFUL',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Your citizen record has been created.'),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppTheme.borderInk),
+                        color: AppTheme.paperBackground,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('AADHAR: $aadharNumber',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 4),
+                          Text('NAME: $name',
+                              style: const TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'You can now log in using your Aadhar number and PIN.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.pencilGrey),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context); // close dialog
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserMainScreen(id: aadharNumber),
+                      ),
+                    );
+                  },
+                  child: const Text('PROCEED TO APP'),
+                ),
+              ],
             ),
           );
         }
@@ -346,15 +400,6 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
                                   ],
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            CheckboxListTile(
-                              value: _isEmulatorBypass,
-                              onChanged: (v) => setState(() => _isEmulatorBypass = v ?? false),
-                              title: const Text('Emulator / Debug Bypass', style: TextStyle(fontSize: 12)),
-                              controlAffinity: ListTileControlAffinity.leading,
-                              contentPadding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
                             ),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
