@@ -1,7 +1,7 @@
-# DRISHTI — Civic Issue Reporting & Management Platform
+# DRISHTI - Civic Issue Reporting & Management Platform
 
 > **DRISHTI** (दृष्टि) means *vision* in Sanskrit.  
-> A smart governance tool that lets citizens report civic problems and lets administrators manage, auto-categorise, and resolve them — powered by AI.
+> A smart governance tool that lets citizens report civic problems and lets administrators manage, auto-categorise, and resolve them - powered by AI.
 
 ---
 
@@ -76,7 +76,7 @@ DRISHTI is a full-stack Flutter application built for the **Smart India Hackatho
   └─ PIN verify                ├─ Roboflow liveness check
                                ├─ 128-dim face encoding
                                └─ Firebase Firestore
-                                  (embedding storage —
+                                  (embedding storage -
                                    backend-internal only)
 
   ADMIN DASHBOARD
@@ -94,22 +94,22 @@ DRISHTI is a full-stack Flutter application built for the **Smart India Hackatho
 ### Flutter App
 | Layer | Technology |
 |---|---|
-| Mobile Framework | Flutter (Dart) — cross-platform Android & iOS |
-| Authentication | Supabase (`profiles` table — Aadhar + 6-digit PIN) |
+| Mobile Framework | Flutter (Dart) - cross-platform Android & iOS |
+| Authentication | Supabase (`profiles` table - Aadhar + 6-digit PIN) |
 | Database | Supabase PostgreSQL |
 | Realtime Updates | Supabase Realtime subscriptions |
 | File / Image Storage | Supabase Storage (issue photos) |
 | Maps & Location | Google Maps Flutter + Geolocator |
 | Local Persistence | `path_provider` (draft issues) |
 
-### AI Backends (Hugging Face Spaces — Docker)
+### AI Backends (Hugging Face Spaces - Docker)
 
 | Service | Technology | HF Space |
 |---|---|---|
 | Categorisation API | Python FastAPI + OpenAI CLIP (`clip-vit-base-patch32`) | [`shubpaste404/drishti`](https://huggingface.co/spaces/shubpaste404/drishti) |
 | Face Auth API | Python Flask + `face_recognition` (dlib) | [`pasteshub404/navikarana-backend`](https://huggingface.co/spaces/pasteshub404/navikarana-backend) |
 | Liveness Detection | Roboflow `face-anti-spoofing` (called by Face Auth API) | Serverless via Roboflow |
-| Face Embedding Storage | Firebase Firestore *(used internally by Face Auth API only — Flutter app does not use Firebase)* | — |
+| Face Embedding Storage | Firebase Firestore *(used internally by Face Auth API only - Flutter app does not use Firebase)* | - |
 
 ---
 
@@ -194,7 +194,7 @@ pip install -r requirements.txt
 uvicorn server:app --host 0.0.0.0 --port 7860
 ```
 
-Push to a Hugging Face Space — the `Dockerfile` handles everything automatically.
+Push to a Hugging Face Space - the `Dockerfile` handles everything automatically.
 
 **Face Recognition Backend (HF Space #2)**
 
@@ -222,7 +222,7 @@ Set the following as **HF Space Secrets**:
 
 ## API Reference
 
-### Categorisation Backend — `https://shubpaste404-drishti.hf.space`
+### Categorisation Backend - `https://shubpaste404-drishti.hf.space`
 
 #### `POST /complaint`
 Submit a citizen complaint with an image.
@@ -268,7 +268,7 @@ Admin auto-sort endpoint. Categorises from a stored image URL + text description
 
 ---
 
-### Face Recognition Backend — `https://pasteshub404-navikarana-backend.hf.space`
+### Face Recognition Backend - `https://pasteshub404-navikarana-backend.hf.space`
 
 #### `POST /register-face`
 Register a citizen's face embedding during signup. Runs liveness check first.
@@ -307,7 +307,7 @@ Built for **Smart India Hackathon (SIH)** by **Team Navikarana**.
 
 | Name | Role |
 |---|---|
-| Shubham Paste | Full Stack — Flutter + AI Backends |
+| Shubham Paste | Full Stack - Flutter + AI Backends |
 
 ---
 
