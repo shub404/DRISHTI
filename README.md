@@ -316,4 +316,4 @@ Built for **Smart India Hackathon (SIH)** by **Team Navikarana**.
 
 ## License
 
-This project is for academic / hackathon use. All rights reserved © Team Navikarana.
+This project is for academic / hackathon use. All rights reserved © Team Aperture.
