@@ -2,28 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Connection state
-// ─────────────────────────────────────────────────────────────────────────────
-
 enum RealtimeConnectionStatus { connecting, connected, reconnecting, failed }
 
-/// Global notifier — listen to this anywhere in the widget tree to react to
-/// Supabase Realtime connection state changes.
 final realtimeStatus = ValueNotifier<RealtimeConnectionStatus>(
   RealtimeConnectionStatus.connecting,
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Wake-up helper
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Sends a lightweight query to ensure the Supabase database is fully awake
-/// before a Realtime connection is attempted.
-///
-/// On free-tier projects the DB can be paused (cold start). Calling this first
-/// prevents the [UnableToConnectToProject] error that occurs when
-/// [supabase.channel()] is called before the DB is ready.
 Future<void> wakeUpSupabase(
   SupabaseClient supabase, {
   String tableName = 'issues',
@@ -36,18 +20,6 @@ Future<void> wakeUpSupabase(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Full cold-start initialisation (recommended entry point)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Cold-start safe initialisation flow:
-///   1. Wake the DB with a lightweight query.
-///   2. Wait [warmupDelay] so Realtime has time to finish booting.
-///   3. Connect with exponential-backoff retry.
-///   4. Updates [realtimeStatus] so the UI can show loading / connected state.
-///
-/// Use this instead of calling [connectRealtimeWithRetry] directly when the
-/// project may be starting from a paused / cold state.
 Future<RealtimeChannel> initRealtime(
   SupabaseClient supabase, {
   String channelName = 'app',
@@ -65,15 +37,6 @@ Future<RealtimeChannel> initRealtime(
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Retry-on-startup connection
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Connects to a Supabase Realtime channel with exponential-backoff retry.
-/// Updates [realtimeStatus] on every state transition.
-///
-/// Returns the active [RealtimeChannel] on success.
-/// Throws an [Exception] after all retries are exhausted.
 Future<RealtimeChannel> connectRealtimeWithRetry(
   SupabaseClient supabase, {
   String channelName = 'app',
@@ -115,7 +78,6 @@ Future<RealtimeChannel> connectRealtimeWithRetry(
 
       if (attempt >= retries) break;
 
-      // Exponential backoff: 2 s, 4 s, 6 s, …
       await Future.delayed(Duration(seconds: 2 * attempt));
     }
   }
@@ -126,17 +88,6 @@ Future<RealtimeChannel> connectRealtimeWithRetry(
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Persistent auto-reconnect subscription
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Subscribes to a Supabase Realtime channel and automatically reconnects
-/// whenever a [RealtimeSubscribeStatus.channelError] or
-/// [RealtimeSubscribeStatus.timedOut] event is received.
-/// Updates [realtimeStatus] on every state transition.
-///
-/// Returns the initial [RealtimeChannel]. The channel self-heals; you do not
-/// need to call subscribe() yourself again after a disconnect.
 RealtimeChannel subscribeWithAutoReconnect(
   SupabaseClient supabase, {
   String channelName = 'app',
@@ -173,19 +124,6 @@ RealtimeChannel subscribeWithAutoReconnect(
   return channel!;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UI widget — drop this anywhere to show a live connection status banner
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Wraps [child] and shows a slim status banner at the top whenever Supabase
-/// Realtime is not fully connected.
-///
-/// Usage:
-/// ```dart
-/// ConnectionStatusBanner(
-///   child: YourPageBody(),
-/// )
-/// ```
 class ConnectionStatusBanner extends StatelessWidget {
   final Widget child;
   const ConnectionStatusBanner({super.key, required this.child});
@@ -229,7 +167,7 @@ class ConnectionStatusBanner extends StatelessWidget {
           message: 'Could not connect. Data may be outdated.',
         );
       case RealtimeConnectionStatus.connected:
-        return null; // no banner when healthy
+        return null;
     }
   }
 }
