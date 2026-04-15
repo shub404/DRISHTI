@@ -4,19 +4,16 @@ import 'package:sih/theme/app_theme.dart';
 import 'package:sih/pages/track_issue.dart';
 import 'package:sih/services/draft_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:sih/widgets/record_card.dart';
 class HomePage extends StatefulWidget {
   final String? id;
   const HomePage({super.key, required this.id});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
-
 class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
   Stream<List<Map<String, dynamic>>>? _myIssuesStream;
-
   @override
   void initState() {
     super.initState();
@@ -29,16 +26,6 @@ class _HomePageState extends State<HomePage> {
           .limit(3);
     }
   }
-
-  Color _statusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'COMPLETED': return Colors.green;
-      case 'IN PROGRESS': return Colors.orange;
-      case 'REJECTED': return Colors.red;
-      default: return AppTheme.inkyNavy;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,7 +39,6 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // --- Header ---
               Text(
                 'COMMUNITY REPORTING',
                 textAlign: TextAlign.center,
@@ -67,8 +53,6 @@ class _HomePageState extends State<HomePage> {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.pencilGrey),
               ),
               const SizedBox(height: 32),
-
-              // --- Quick Action Card ---
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -101,8 +85,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // --- Drafts Section ---
               FutureBuilder<List<DraftReport>>(
                 future: DraftService.loadDrafts(),
                 builder: (context, snapshot) {
@@ -140,6 +122,9 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 4),
                       ...List.generate(drafts.length, (i) {
                         final d = drafts[i];
+                        final isAuto = d.autoSync;
+                        final highlightColor = isAuto ? Colors.indigo : Colors.orange;
+
                         return GestureDetector(
                           onTap: () {
                             Navigator.push(
@@ -157,20 +142,19 @@ class _HomePageState extends State<HomePage> {
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.04),
+                              color: highlightColor.withValues(alpha: 0.04),
                               border: Border.all(
-                                  color: Colors.orange.withOpacity(0.35),
+                                  color: highlightColor.withValues(alpha: 0.35),
                                   width: 1),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.content_paste_search_outlined,
-                                    size: 18, color: Colors.orange),
+                                Icon(isAuto ? Icons.cloud_sync_outlined : Icons.content_paste_search_outlined,
+                                    size: 18, color: highlightColor),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         d.description.isNotEmpty
@@ -184,14 +168,22 @@ class _HomePageState extends State<HomePage> {
                                             ?.copyWith(
                                                 fontWeight: FontWeight.w500),
                                       ),
-                                      Text(
-                                        d.timestamp
-                                            .toLocal()
-                                            .toString()
-                                            .substring(0, 16),
-                                        style: const TextStyle(
-                                            fontSize: 10,
-                                            color: AppTheme.pencilGrey),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            d.timestamp
+                                                .toLocal()
+                                                .toString()
+                                                .substring(0, 16),
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.pencilGrey),
+                                          ),
+                                          if (isAuto) ...[
+                                            const SizedBox(width: 6),
+                                            Text('• Pending Sync', style: TextStyle(fontSize: 10, color: highlightColor, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -220,8 +212,6 @@ class _HomePageState extends State<HomePage> {
                   );
                 },
               ),
-
-              // --- My Recent Reports (live) ---
               if (_myIssuesStream != null) ...[
                 Text('MY RECENT REPORTS',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -249,53 +239,12 @@ class _HomePageState extends State<HomePage> {
                     }
                     return Column(
                       children: snapshot.data!.map((issue) {
-                        final status = (issue['status'] ?? 'SUBMITTED').toString().toUpperCase();
-                        final description = issue['description'] ?? '';
-                        final category = (issue['category'] ?? 'UNCATEGORISED').toString().toUpperCase();
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppTheme.borderInk, width: 0.8),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(category,
-                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                            color: AppTheme.pencilGrey, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 2),
-                                    Text(description,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.bodySmall),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: _statusColor(status), width: 1),
-                                ),
-                                child: Text(status,
-                                    style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color: _statusColor(status),
-                                        letterSpacing: 0.5)),
-                              ),
-                            ],
-                          ),
-                        );
+                        return RecordCard(issue: issue, compact: true);
                       }).toList(),
                     );
                   },
                 ),
               ],
-
               const SizedBox(height: 32),
               const Divider(),
               Text('OFFICIAL RECORD SYSTEM',

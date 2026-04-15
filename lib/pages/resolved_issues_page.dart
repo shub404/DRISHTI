@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sih/theme/app_theme.dart';
-
-/// Shows all issues that have been addressed (anything that is NOT "SUBMITTED")
+import 'package:sih/widgets/record_card.dart';
 class ResolvedIssuesPage extends StatefulWidget {
   const ResolvedIssuesPage({super.key});
-
   @override
   State<ResolvedIssuesPage> createState() => _ResolvedIssuesPageState();
 }
-
 class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
   final supabase = Supabase.instance.client;
-
   final List<String> statusFilters = ['ALL', 'COMPLETED', 'IN PROGRESS', 'REJECTED'];
   String selectedStatus = 'ALL';
-
   late final Stream<List<Map<String, dynamic>>> _stream;
-
   @override
   void initState() {
     super.initState();
@@ -26,21 +20,15 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false);
   }
-
   Future<void> _refreshData() async {
     setState(() {});
     await Future.delayed(const Duration(milliseconds: 500));
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // COMPLETION LOG DIALOG
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _showCompletionDialog(String issueId) async {
     final noteCtrl = TextEditingController();
     final authorityCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
     bool isSaving = false;
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -175,16 +163,11 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
       },
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // REJECTION LOG DIALOG
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _showRejectDialog(String issueId) async {
     final reasonCtrl = TextEditingController();
     final authorityCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
     bool isSaving = false;
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -288,7 +271,6 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
       },
     );
   }
-
   Color _statusColor(String status) {
     switch (status) {
       case 'COMPLETED':   return Colors.green.shade700;
@@ -297,25 +279,6 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
       default:            return AppTheme.inkyNavy;
     }
   }
-
-  Color _borderColor(String status) {
-    switch (status) {
-      case 'COMPLETED':   return Colors.green.shade500;
-      case 'IN PROGRESS': return Colors.orange.shade500;
-      case 'REJECTED':    return Colors.red.shade500;
-      default:            return AppTheme.borderInk;
-    }
-  }
-
-  IconData _statusIcon(String status) {
-    switch (status) {
-      case 'COMPLETED':   return Icons.check_circle_outline;
-      case 'IN PROGRESS': return Icons.timelapse_outlined;
-      case 'REJECTED':    return Icons.block_outlined;
-      default:            return Icons.info_outline;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -331,7 +294,6 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
       ),
       body: Column(
         children: [
-          // Filter Tabs
           Container(
             height: 52,
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -371,8 +333,6 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
               },
             ),
           ),
-
-          // Main List
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _stream,
@@ -381,14 +341,32 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData) return const Center(child: Text('No data'));
-
                 final data = snapshot.data!.where((issue) {
                   final s = (issue['status'] ?? '').toString().toUpperCase().trim();
                   return s != 'SUBMITTED' && (selectedStatus == 'ALL' || s == selectedStatus);
                 }).toList();
-
+                final priorityWeight = {
+                  'CRITICAL': 5,
+                  'VERY HIGH': 4,
+                  'HIGH': 3,
+                  'MEDIUM': 2,
+                  'LOW': 1,
+                  'N/A': 0,
+                  'UNCATEGORISED': 0,
+                };
+                data.sort((a, b) {
+                  final pA = (a['priority'] ?? 'Low').toString().toUpperCase();
+                  final pB = (b['priority'] ?? 'Low').toString().toUpperCase();
+                  final weightA = priorityWeight[pA] ?? 1;
+                  final weightB = priorityWeight[pB] ?? 1;
+                  if (weightA != weightB) {
+                    return weightB.compareTo(weightA);
+                  }
+                  final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(2000);
+                  final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(2000);
+                  return dateB.compareTo(dateA);
+                });
                 if (data.isEmpty) return const Center(child: Text('No matching issues.'));
-
                 return RefreshIndicator(
                   onRefresh: _refreshData,
                   child: ListView.builder(
@@ -404,110 +382,33 @@ class _ResolvedIssuesPageState extends State<ResolvedIssuesPage> {
       ),
     );
   }
-
   Widget _buildCard(BuildContext context, Map<String, dynamic> issue) {
-    final id = issue['id'].toString();
-    final description = issue['description'] ?? '';
     final status = (issue['status'] ?? '').toString().toUpperCase().trim();
-    final imageUrl = issue['image_url'] ?? '';
-    final category = (issue['category'] ?? 'UNCATEGORISED').toString().toUpperCase();
-    final createdAt = DateTime.tryParse(issue['created_at'] ?? '') ?? DateTime.now();
-
-    final completionLog = {
-      'note': issue['completion_note'] as String?,
-      'date': issue['completion_date'] as String?,
-      'authority': issue['completion_authority'] as String?,
-    };
-
-    final rejectionLog = {
-      'note': issue['rejection_note'] as String?,
-      'date': issue['rejection_date'] as String?,
-    };
-
-    final borderColor = _borderColor(status);
-    final statusColor = _statusColor(status);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(border: Border.all(color: borderColor, width: 1.5)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final id = issue['id'].toString();
+    Widget? actionButtons;
+    if (status == 'IN PROGRESS') {
+      actionButtons = Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: borderColor.withOpacity(0.05),
-            child: Row(
-              children: [
-                Icon(_statusIcon(status), size: 16, color: statusColor),
-                const SizedBox(width: 8),
-                Expanded(child: Text(category, style: const TextStyle(fontWeight: FontWeight.bold))),
-                Text(status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 10)),
-              ],
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+              onPressed: () => _showCompletionDialog(id),
+              child: const Text('COMPLETE', style: TextStyle(fontSize: 10)),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(description),
-                if (imageUrl.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Image.network(imageUrl, height: 160, width: double.infinity, fit: BoxFit.cover),
-                ],
-                const SizedBox(height: 12),
-                Text(createdAt.toLocal().toString().substring(0, 16), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                
-                if (status == 'COMPLETED' && completionLog['note'] != null) ...[
-                  const Divider(),
-                  _logBox('COMPLETION LOG', completionLog['note']!, completionLog['date'], Colors.green),
-                ],
-                if (status == 'REJECTED' && rejectionLog['note'] != null) ...[
-                  const Divider(),
-                  _logBox('REJECTION LOG', rejectionLog['note']!, rejectionLog['date'], Colors.red),
-                ],
-                if (status == 'IN PROGRESS') ...[
-                  const Divider(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                          onPressed: () => _showCompletionDialog(id),
-                          child: const Text('COMPLETE', style: TextStyle(fontSize: 10)),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _showRejectDialog(id),
-                          child: const Text('REJECT', style: TextStyle(fontSize: 10, color: Colors.red)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => _showRejectDialog(id),
+              child: const Text('REJECT', style: TextStyle(fontSize: 10, color: Colors.red)),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _logBox(String title, String note, String? date, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      color: color.withOpacity(0.05),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
-          const SizedBox(height: 4),
-          Text(note, style: const TextStyle(fontSize: 12)),
-          if (date != null) Text(date, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
-      ),
+      );
+    }
+    return RecordCard(
+      issue: issue,
+      actionButtons: actionButtons,
     );
   }
 }

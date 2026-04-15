@@ -5,6 +5,7 @@ import 'package:sih/pages/track_issue.dart';
 import 'package:sih/pages/my_community.dart';
 import 'package:sih/pages/settings_page.dart';
 import 'package:sih/theme/app_theme.dart';
+import 'package:sih/services/sync_service.dart';
 
 class UserMainScreen extends StatefulWidget {
   final String? id;
@@ -16,12 +17,13 @@ class UserMainScreen extends StatefulWidget {
 
 class _UserMainScreenState extends State<UserMainScreen> {
   int _currentIndex = 0;
-
   late final List<Widget> _pages;
+  final _syncService = SyncService();
 
   @override
   void initState() {
     super.initState();
+    _syncService.initialize();
     // All pages are instantiated once and kept alive as user switches tabs
     _pages = [
       HomePage(id: widget.id),
@@ -30,6 +32,12 @@ class _UserMainScreenState extends State<UserMainScreen> {
       MyCommunityPage(id: widget.id),
       SettingsPage(id: widget.id),
     ];
+  }
+
+  @override
+  void dispose() {
+    _syncService.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,7 +54,13 @@ class _UserMainScreenState extends State<UserMainScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+              if (index == 0) _pages[0] = HomePage(id: widget.id, key: UniqueKey());
+              if (index == 1) _pages[1] = TrackIssuePage(id: widget.id, key: UniqueKey());
+            });
+          },
           type: BottomNavigationBarType.fixed,
           backgroundColor: AppTheme.paperBackground,
           selectedItemColor: AppTheme.inkyNavy,

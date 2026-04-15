@@ -5,10 +5,6 @@ import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   // ── IP Configuration ──────────────────────────────────────────────────────
-  // 10.0.2.2  = Android Emulator loopback → maps to host machine's localhost
-  // 172.22.9.29 = Physical device LAN IP → update if your PC IP changes
-  static const String _emulatorBase  = 'http://10.0.2.2:8000';
-  static const String _physicalBase  = 'http://172.22.9.29:8000';
   static const String _liveBase      = 'https://shubpaste404-drishti.hf.space';
 
   /// Returns the base URL for the backend API.

@@ -5,69 +5,54 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sih/theme/app_theme.dart';
 import 'package:sih/services/api_service.dart';
-
 class AdminIssueViewPage extends StatefulWidget {
   const AdminIssueViewPage({super.key});
-
   @override
   State<AdminIssueViewPage> createState() => _AdminIssueViewPageState();
 }
-
 class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   final supabase = Supabase.instance.client;
-
   final List<String> categories = [
     'ALL', 'ROAD', 'WATER', 'ELECTRICITY', 'SANITATION',
     'TREE', 'STRAY ANIMALS', 'NOISE', 'TRAFFIC', 'BUILDING',
     'FIRE HAZARD', 'PUBLIC HEALTH', 'CRIME', 'FLOOD DRAINAGE', 'UNCATEGORISED'
   ];
   String selectedCategory = 'ALL';
-
   final Map<String, String> _updatingMap = {};
   final Set<String> _optimisticallyHidden = {}; // Track IDs to hide immediately
   bool _isCategorizing = false;
   Stream<List<Map<String, dynamic>>>? _issueStream;
   Timer? _reconnectTimer;
-
   @override
   void initState() {
     super.initState();
     _initStream();
   }
-
   @override
   void dispose() {
     _reconnectTimer?.cancel();
     super.dispose();
   }
-
   void _initStream() {
     _issueStream = supabase
         .from('issues')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false);
   }
-
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 4), () async {
       if (!mounted) return;
-      // Wake up the Supabase project before reconnecting
       try {
         await supabase.from('issues').select().limit(1);
       } catch (_) {}
       if (mounted) setState(() => _initStream());
     });
   }
-
   Future<void> _refreshData() async {
     _reconnectTimer?.cancel();
     if (mounted) setState(() => _initStream());
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // COMPLETION LOG DIALOG — opens before marking COMPLETED
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _showCompletionDialog(String issueId) async {
     final noteCtrl = TextEditingController();
     final authorityCtrl = TextEditingController();
@@ -75,7 +60,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     File? proofImage;
     String? proofImagePath;
     bool isUploading = false;
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -112,7 +96,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── Work Note ──
                     const Text('WORK DONE',
                         style: TextStyle(
                             fontSize: 10,
@@ -130,8 +113,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // ── Authority ──
                     const Text('AUTHORITY / VERIFIED BY',
                         style: TextStyle(
                             fontSize: 10,
@@ -147,8 +128,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // ── Date ──
                     const Text('DATE OF COMPLETION',
                         style: TextStyle(
                             fontSize: 10,
@@ -187,8 +166,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // ── Proof Image ──
                     const Text('PROOF IMAGE (Optional)',
                         style: TextStyle(
                             fontSize: 10,
@@ -281,15 +258,13 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text('Please describe the work done.'),
-                                  backgroundColor: Colors.red),
+                                  backgroundColor: AppTheme.classicCrimson),
                             );
                             return;
                           }
                           setDialogState(() => isUploading = true);
-
                           String? proofUrl;
                           try {
-                            // Upload proof image if provided
                             if (proofImage != null) {
                               final fileName =
                                   'proof_${issueId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -303,8 +278,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                                   .from('drishti')
                                   .getPublicUrl(fileName);
                             }
-
-                            // Update Supabase with all completion details
                             final response = await supabase.from('issues').update({
                               'status': 'COMPLETED',
                               'completion_note':
@@ -317,11 +290,9 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                                       : authorityCtrl.text.trim(),
                               'completion_proof_url': proofUrl,
                             }).eq('id', issueId).select();
-
                             if (response.isEmpty) {
                               throw Exception('Issue not found or no permission to update.');
                             }
-
                             if (mounted) {
                               setState(() {
                                 _optimisticallyHidden.add(issueId);
@@ -346,7 +317,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                     content: Text('Failed: $e'),
-                                    backgroundColor: Colors.red),
+                                    backgroundColor: AppTheme.classicCrimson),
                               );
                             }
                           }
@@ -359,10 +330,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
       },
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SIMPLE STATUS UPDATE (IN PROGRESS / REJECTED — no log needed)
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _updateIssueStatus(String id, String newStatus) async {
     setState(() => _updatingMap[id] = newStatus);
     try {
@@ -371,11 +338,9 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
           .update({'status': newStatus})
           .eq('id', id)
           .select();
-
       if (response.isEmpty) {
         throw Exception('Issue not found or update failed.');
       }
-
       if (mounted) {
         setState(() {
           _optimisticallyHidden.add(id);
@@ -402,23 +367,18 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: AppTheme.classicCrimson),
         );
       }
     } finally {
       if (mounted) setState(() => _updatingMap.remove(id));
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // REJECTION LOG DIALOG — opens before marking REJECTED
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _showRejectDialog(String issueId) async {
     final reasonCtrl = TextEditingController();
     final authorityCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
     bool isSaving = false;
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -472,7 +432,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     const Text('REJECTED BY (AUTHORITY)',
                         style: TextStyle(
                             fontSize: 10,
@@ -488,7 +447,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     const Text('DATE OF REJECTION',
                         style: TextStyle(
                             fontSize: 10,
@@ -546,7 +504,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       : () async {
                           if (reasonCtrl.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please provide a reason.'), backgroundColor: Colors.red),
+                              const SnackBar(content: Text('Please provide a reason.'), backgroundColor: AppTheme.classicCrimson),
                             );
                             return;
                           }
@@ -558,14 +516,12 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                               'rejection_date': '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
                               'rejection_authority': authorityCtrl.text.trim().isEmpty ? null : authorityCtrl.text.trim(),
                             }).eq('id', issueId).select();
-
                             if (resp.isEmpty) throw Exception('Update failed');
-
                             if (mounted) {
                               setState(() => _optimisticallyHidden.add(issueId));
                               Navigator.of(dialogCtx).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Issue REJECTED'), backgroundColor: Colors.red),
+                                const SnackBar(content: Text('Issue REJECTED'), backgroundColor: AppTheme.classicCrimson),
                               );
                             }
                           } catch (e) {
@@ -583,18 +539,14 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
       },
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // AUTO-SORT
-  // ─────────────────────────────────────────────────────────────────────────
   Future<void> _categorizeAll() async {
     setState(() => _isCategorizing = true);
     try {
       final uncategorised = await supabase
           .from('issues')
           .select()
-          .eq('category', 'UNCATEGORISED');
-
+          .eq('category', 'UNCATEGORISED')
+          .eq('status', 'SUBMITTED');
       if (uncategorised.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -605,7 +557,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
         }
         return;
       }
-
       int count = 0;
       for (final issue in uncategorised) {
         final String id = issue['id'].toString();
@@ -613,7 +564,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
         final String? imageUrl = issue['image_url'];
         final double lat = (issue['latitude'] ?? 0.0).toDouble();
         final double lon = (issue['longitude'] ?? 0.0).toDouble();
-
         String category = 'UNCATEGORISED';
         double confidence = 0.0;
         String priority = 'Low';
@@ -630,10 +580,8 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
         } catch (_) {
           category = _keywordCategorize(description);
           confidence = category != 'UNCATEGORISED' ? 60.0 : 0.0;
-          // default keyword mapping
           priority = 'Low'; 
         }
-
         if (category != 'UNCATEGORISED') {
           debugPrint('[AUTO-SORT] Updating id=$id → category=$category (${confidence.toStringAsFixed(1)}%) | Priority: $priority');
           final updateResp = await supabase
@@ -651,11 +599,10 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
           debugPrint('[AUTO-SORT] ⏩ Skipping id=$id (no matching category for: "$description")');
         }
       }
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Auto-sorted $count / ${uncategorised.length} issues'),
+            content: Text('Auto-sorted $count / ${uncategorised.length} pending submissions'),
             backgroundColor: Colors.green,
           ),
         );
@@ -663,14 +610,13 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sort error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Sort error: $e'), backgroundColor: AppTheme.classicCrimson),
         );
       }
     } finally {
       if (mounted) setState(() => _isCategorizing = false);
     }
   }
-
   String _mapCategory(String pred) {
     final p = pred.toUpperCase().trim();
     const valid = [
@@ -694,7 +640,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     if (p.contains('DRAIN') || p.contains('FLOOD')) return 'FLOOD DRAINAGE';
     return 'UNCATEGORISED';
   }
-
   String _keywordCategorize(String text) {
     final t = text.toLowerCase();
     if (t.contains('pothole') || t.contains('road') || t.contains('pavement') || t.contains('sadak') || t.contains('gaddha')) return 'ROAD';
@@ -712,7 +657,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     if (t.contains('drain') || t.contains('naali') || t.contains('waterlog') || t.contains('barish')) return 'FLOOD DRAINAGE';
     return 'UNCATEGORISED';
   }
-
   Color _statusColor(String status) {
     switch (status.toUpperCase()) {
       case 'COMPLETED':
@@ -725,11 +669,8 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
         return AppTheme.inkyNavy;
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('ISSUE MANAGEMENT'),
@@ -743,7 +684,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
       ),
       body: Column(
         children: [
-          // ── Category filter tabs ──
           Container(
             height: 52,
             padding: const EdgeInsets.symmetric(vertical: 6),
@@ -785,8 +725,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
               },
             ),
           ),
-
-          // ── Auto-Sort banner (ALL tab only) ──
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: selectedCategory == 'ALL'
@@ -846,7 +784,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                   )
                 : const SizedBox.shrink(key: ValueKey('no-autosort')),
           ),
-
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _issueStream,
@@ -890,12 +827,9 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
                 final filtered = snapshot.data!.where((i) {
                   final id = i['id'].toString();
-                  // Hide if optimistically marked as done
                   if (_optimisticallyHidden.contains(id)) return false;
-
                   final status =
                       (i['status'] ?? '').toString().toUpperCase().trim();
                   final cat =
@@ -904,7 +838,27 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       (selectedCategory == 'ALL' ||
                           cat == selectedCategory);
                 }).toList();
-
+                final priorityWeight = {
+                  'CRITICAL': 5,
+                  'VERY HIGH': 4,
+                  'HIGH': 3,
+                  'MEDIUM': 2,
+                  'LOW': 1,
+                  'N/A': 0,
+                  'UNCATEGORISED': 0,
+                };
+                filtered.sort((a, b) {
+                  final pA = (a['priority'] ?? 'Low').toString().toUpperCase();
+                  final pB = (b['priority'] ?? 'Low').toString().toUpperCase();
+                  final weightA = priorityWeight[pA] ?? 1;
+                  final weightB = priorityWeight[pB] ?? 1;
+                  if (weightA != weightB) {
+                    return weightB.compareTo(weightA); // Higher weight first
+                  }
+                  final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(2000);
+                  final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(2000);
+                  return dateB.compareTo(dateA);
+                });
                 if (filtered.isEmpty) {
                   return Center(
                     child: Column(
@@ -912,7 +866,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                       children: [
                         Icon(Icons.inbox_outlined,
                             size: 56,
-                            color: AppTheme.pencilGrey.withOpacity(0.4)),
+                            color: AppTheme.pencilGrey.withValues(alpha: 0.4)),
                         const SizedBox(height: 12),
                         Text('No pending issues.',
                             style: Theme.of(context)
@@ -923,7 +877,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                     ),
                   );
                 }
-
                 return RefreshIndicator(
                   onRefresh: _refreshData,
                   color: AppTheme.inkyNavy,
@@ -941,8 +894,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
       ),
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
   Widget _buildIssueCard(Map<String, dynamic> issue) {
     final id = issue['id'].toString();
     final description = issue['description'] ?? '';
@@ -956,20 +907,16 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
     final createdAt =
         DateTime.tryParse(issue['created_at'] ?? '') ?? DateTime.now();
     final isUpdating = _updatingMap.containsKey(id);
-
     final priority = (issue['priority'] ?? 'Low').toString();
     final upvotes = (issue['upvotes'] ?? 0) as int;
-
     final borderColor = status == 'IN PROGRESS'
         ? Colors.orange.shade600
         : AppTheme.borderInk;
-        
     Color priorityColor = Colors.grey;
     if (priority == 'Critical') priorityColor = Colors.red.shade800;
     else if (priority == 'High') priorityColor = Colors.orange.shade800;
     else if (priority == 'Medium') priorityColor = Colors.amber.shade700;
     else priorityColor = Colors.green.shade700;
-
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 16),
@@ -986,7 +933,7 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
           decoration: BoxDecoration(
             border: Border(
               bottom:
-                  BorderSide(color: borderColor.withOpacity(0.3), width: 0.8),
+                  BorderSide(color: borderColor.withValues(alpha: 0.3), width: 0.8),
             ),
           ),
           child: Row(
@@ -1035,9 +982,9 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                           decoration: BoxDecoration(
-                            border: Border.all(color: priorityColor.withOpacity(0.5)),
+                            border: Border.all(color: priorityColor.withValues(alpha: 0.5)),
                             borderRadius: BorderRadius.circular(2),
-                            color: priorityColor.withOpacity(0.1),
+                            color: priorityColor.withValues(alpha: 0.1),
                           ),
                           child: Text('PRIORITY: ${priority.toUpperCase()}', style: TextStyle(fontSize: 8, color: priorityColor, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                         ),
@@ -1115,13 +1062,13 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                     ? child
                     : Container(
                         height: 200,
-                        color: AppTheme.inkyNavy.withOpacity(0.05),
+                        color: AppTheme.inkyNavy.withValues(alpha: 0.05),
                         child: const Center(
                             child:
                                 CircularProgressIndicator(strokeWidth: 2))),
                 errorBuilder: (_, __, ___) => Container(
                   height: 80,
-                  color: AppTheme.inkyNavy.withOpacity(0.05),
+                  color: AppTheme.inkyNavy.withValues(alpha: 0.05),
                   child: const Center(
                       child: Icon(Icons.image_not_supported_outlined,
                           color: AppTheme.inkyNavy)),
@@ -1139,8 +1086,6 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
-
-          // ── Action buttons ──
           isUpdating
               ? Center(
                   child: Padding(
@@ -1164,55 +1109,70 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                     ),
                   ),
                 )
-              : Row(
+              : Column(
                   children: [
-                    // COMPLETED — opens the log dialog first
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade700,
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            shape: const RoundedRectangleBorder()),
-                        onPressed: () => _showCompletionDialog(id),
-                        icon: const Icon(Icons.check_circle_outline, size: 13),
-                        label: const Text('COMPLETED',
-                            style: TextStyle(
-                                fontSize: 9, fontWeight: FontWeight.bold)),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.shade700,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                shape: const RoundedRectangleBorder()),
+                            onPressed: () => _showCompletionDialog(id),
+                            icon: const Icon(Icons.check_circle_outline, size: 13),
+                            label: const Text('COMPLETED',
+                                style: TextStyle(
+                                    fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade700,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                shape: const RoundedRectangleBorder()),
+                            onPressed: () =>
+                                _updateIssueStatus(id, 'IN PROGRESS'),
+                            icon: const Icon(Icons.timelapse_outlined, size: 13),
+                            label: const Text('PROGRESS',
+                                style: TextStyle(
+                                    fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.red.shade700),
+                                foregroundColor: Colors.red.shade700,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                shape: const RoundedRectangleBorder()),
+                            onPressed: () => _showRejectDialog(id),
+                            icon: const Icon(Icons.block_outlined, size: 13),
+                            label: const Text('REJECT',
+                                style: TextStyle(
+                                    fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.shade700,
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            shape: const RoundedRectangleBorder()),
-                        onPressed: () =>
-                            _updateIssueStatus(id, 'IN PROGRESS'),
-                        icon: const Icon(Icons.timelapse_outlined, size: 13),
-                        label: const Text('PROGRESS',
-                            style: TextStyle(
-                                fontSize: 9, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: Colors.red.shade700),
-                            foregroundColor: Colors.red.shade700,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            shape: const RoundedRectangleBorder()),
-                        onPressed: () => _showRejectDialog(id),
-                        icon: const Icon(Icons.block_outlined, size: 13),
-                        label: const Text('REJECT',
-                            style: TextStyle(
-                                fontSize: 9, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade600,
+                        ),
+                        onPressed: () => _updateIssueStatus(id, 'ARCHIVED'),
+                        icon: const Icon(Icons.delete_sweep_outlined, size: 14),
+                        label: const Text('FLAG AS SPAM / ARCHIVE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                       ),
                     ),
                   ],

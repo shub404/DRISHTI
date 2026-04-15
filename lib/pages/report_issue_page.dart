@@ -7,6 +7,7 @@ import 'package:sih/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sih/services/api_service.dart';
 import 'package:sih/services/draft_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ReportIssuePage extends StatefulWidget {
   final String? id;
@@ -41,6 +42,7 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
 
   final ValueNotifier<String> _statusNotifier = ValueNotifier('Initializing...');
   bool _cancelRequested = false;
+  bool _autoSync = false;
 
   @override
   void initState() {
@@ -129,13 +131,15 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
     if (pickedFile != null) setState(() => _image = File(pickedFile.path));
   }
 
-  Future<void> _saveDraft() async {
+  Future<void> _saveDraft({bool isAutoSync = false}) async {
     final draft = DraftReport(
       description: _descriptionController.text,
       imagePath: _image?.path,
       lat: _locationData?.latitude,
       lon: _locationData?.longitude,
       timestamp: DateTime.now(),
+      autoSync: isAutoSync,
+      userId: widget.id,
     );
     // If editing an existing draft, delete it first to avoid duplicates
     if (widget.draftIndex != null) {
@@ -218,13 +222,38 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please attach an image'),
-            backgroundColor: Colors.red),
+            backgroundColor: AppTheme.classicCrimson),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
     _cancelRequested = false;
+
+    // Check connectivity first
+    final List<ConnectivityResult> connectivityResults = await Connectivity().checkConnectivity();
+    final bool isOffline = connectivityResults.contains(ConnectivityResult.none);
+
+    if (isOffline) {
+      if (_autoSync) {
+         await _saveDraft(isAutoSync: true);
+         if (mounted) setState(() => _isSubmitting = false);
+         return;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: const Text('You are offline. Please tick auto-submit or save as draft.'),
+                backgroundColor: AppTheme.classicCrimson,
+                action: SnackBarAction(label: 'SAVE', textColor: Colors.white, onPressed: _saveDraft),
+            ),
+          );
+          setState(() => _isSubmitting = false);
+        }
+        return;
+      }
+    }
+
     _statusNotifier.value = 'Getting your location...';
     _showProgressDialog();
 
@@ -316,12 +345,12 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.classicCrimson,
             duration: const Duration(seconds: 8),
             action: SnackBarAction(
               label: 'SAVE DRAFT',
               textColor: Colors.white,
-              onPressed: _saveDraft,
+              onPressed: () => _saveDraft(isAutoSync: _autoSync),
             ),
           ),
         );
@@ -332,12 +361,26 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
   }
 
   String _mapCategory(String pred) {
-    final p = pred.toLowerCase();
-    if (p.contains('pothole') || p.contains('road')) return 'ROAD';
-    if (p.contains('water')) return 'WATER';
-    if (p.contains('light') || p.contains('electr')) return 'ELECTRICITY';
-    if (p.contains('garbage') || p.contains('sanit') || p.contains('waste'))
-      return 'SANITATION';
+    final p = pred.toUpperCase().trim();
+    const valid = [
+      'ROAD', 'WATER', 'ELECTRICITY', 'SANITATION',
+      'TREE', 'STRAY ANIMALS', 'NOISE', 'TRAFFIC', 'BUILDING',
+      'FIRE HAZARD', 'PUBLIC HEALTH', 'CRIME', 'FLOOD DRAINAGE'
+    ];
+    if (valid.contains(p)) return p;
+    if (p.contains('ROAD') || p.contains('POTHOLE') || p.contains('PAVEMENT')) return 'ROAD';
+    if (p.contains('WATER') || p.contains('LEAK') || p.contains('PIPE')) return 'WATER';
+    if (p.contains('ELECTR') || p.contains('LIGHT') || p.contains('POLE')) return 'ELECTRICITY';
+    if (p.contains('SANIT') || p.contains('GARBAGE') || p.contains('WASTE') || p.contains('TRASH')) return 'SANITATION';
+    if (p.contains('TREE') || p.contains('PARK') || p.contains('PED')) return 'TREE';
+    if (p.contains('STRAY') || p.contains('ANIMAL') || p.contains('DOG') || p.contains('COW')) return 'STRAY ANIMALS';
+    if (p.contains('NOISE') || p.contains('SOUND') || p.contains('SPEAKER')) return 'NOISE';
+    if (p.contains('TRAFFIC') || p.contains('SIGNAL') || p.contains('JAM')) return 'TRAFFIC';
+    if (p.contains('BUILD') || p.contains('CONSTRUCT') || p.contains('WALL')) return 'BUILDING';
+    if (p.contains('FIRE') || p.contains('GAS') || p.contains('SMOKE') || p.contains('HAZARD')) return 'FIRE HAZARD';
+    if (p.contains('HEALTH') || p.contains('MOSQUITO') || p.contains('DISEASE')) return 'PUBLIC HEALTH';
+    if (p.contains('CRIME') || p.contains('CCTV') || p.contains('THEFT')) return 'CRIME';
+    if (p.contains('DRAIN') || p.contains('FLOOD') || p.contains('WATERLOG')) return 'FLOOD DRAINAGE';
     return 'UNCATEGORISED';
   }
 
@@ -381,9 +424,9 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.08),
+                      color: Colors.orange.withValues(alpha: 0.08),
                       border: Border.all(
-                          color: Colors.orange.withOpacity(0.4), width: 1),
+                          color: Colors.orange.withValues(alpha: 0.4), width: 1),
                     ),
                     child: Row(
                       children: [
@@ -508,6 +551,26 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
                             ),
                           ),
                           const SizedBox(height: 48),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _autoSync,
+                                onChanged: _isSubmitting
+                                    ? null
+                                    : (val) {
+                                        setState(() {
+                                          _autoSync = val ?? false;
+                                        });
+                                      },
+                                activeColor: AppTheme.inkyNavy,
+                              ),
+                              Expanded(
+                                child: Text('Submit automatically when online',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.inkyNavy, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
                           ElevatedButton.icon(
                             icon: const Icon(
                                 Icons.assignment_turned_in_outlined),
@@ -517,7 +580,7 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
                           ),
                           const SizedBox(height: 12),
                           OutlinedButton.icon(
-                            onPressed: _isSubmitting ? null : _saveDraft,
+                            onPressed: _isSubmitting ? null : () => _saveDraft(),
                             icon: const Icon(Icons.save_outlined),
                             label: const Text('SAVE AS LOCAL DRAFT'),
                           ),

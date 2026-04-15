@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DraftReport {
@@ -8,6 +9,8 @@ class DraftReport {
   final double? lat;
   final double? lon;
   final DateTime timestamp;
+  final bool autoSync;
+  final String? userId;
 
   DraftReport({
     required this.description,
@@ -15,6 +18,8 @@ class DraftReport {
     this.lat,
     this.lon,
     required this.timestamp,
+    this.autoSync = false,
+    this.userId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -23,6 +28,8 @@ class DraftReport {
     'lat': lat,
     'lon': lon,
     'timestamp': timestamp.toIso8601String(),
+    'autoSync': autoSync,
+    'userId': userId,
   };
 
   factory DraftReport.fromJson(Map<String, dynamic> json) => DraftReport(
@@ -31,6 +38,8 @@ class DraftReport {
     lat: json['lat'],
     lon: json['lon'],
     timestamp: DateTime.parse(json['timestamp']),
+    autoSync: json['autoSync'] ?? false,
+    userId: json['userId'],
   );
 }
 
@@ -51,7 +60,7 @@ class DraftService {
       final List<dynamic> jsonList = json.decode(content);
       return jsonList.map((e) => DraftReport.fromJson(e)).toList();
     } catch (e) {
-      print('Error loading drafts: $e');
+      debugPrint('Error loading drafts: $e');
       return [];
     }
   }

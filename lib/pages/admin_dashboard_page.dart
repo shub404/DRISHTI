@@ -5,6 +5,7 @@ import 'package:sih/pages/aadhar_login.dart';
 import 'package:sih/pages/resolved_issues_page.dart';
 import 'package:sih/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sih/services/export_service.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -59,6 +60,141 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       context,
       MaterialPageRoute(builder: (_) => const AadharLoginPage()),
       (route) => false,
+    );
+  }
+
+  Future<void> _handleExport(String filter, ExportAction action) async {
+    try {
+      final label = action == ExportAction.download ? 'Downloading' : 'Preparing';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Text('$label $filter report...', style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+          backgroundColor: AppTheme.inkyNavy,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      
+      final result = await ExportService.exportRecords(filter, action: action);
+
+      if (action == ExportAction.download && result != null && mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('EXPORT SUCCESSFUL', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            content: Text('The file has been saved to your device:\n\n$result', style: const TextStyle(fontSize: 12)),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: ${e.toString()}'),
+            backgroundColor: AppTheme.classicCrimson,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showExportOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
+      ),
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(color: AppTheme.inkyNavy),
+            child: const Row(
+              children: [
+                Icon(Icons.file_download_outlined, color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Text(
+                  'EXPORT RECORD LOGS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _exportCategoryItem('COMPLETED RECORDS', 'COMPLETED'),
+          _exportCategoryItem('IN PROGRESS RECORDS', 'IN PROGRESS'),
+          _exportCategoryItem('REJECTED RECORDS', 'REJECTED'),
+          const Divider(height: 1),
+          _exportCategoryItem('ALL ADDRESSED RECORDS', 'ADDRESSED'),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  Widget _exportCategoryItem(String title, String filter) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.pencilGrey)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.save_alt, size: 16),
+                  label: const Text('DOWNLOAD', style: TextStyle(fontSize: 10)),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleExport(filter, ExportAction.download);
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.share_outlined, size: 16),
+                  label: const Text('SHARE', style: TextStyle(fontSize: 10)),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleExport(filter, ExportAction.share);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _exportOption({required IconData icon, required String label, required VoidCallback onTap}) {
+    return ListTile(
+      leading: Icon(icon, color: AppTheme.inkyNavy, size: 22),
+      title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.borderInk),
+      onTap: onTap,
     );
   }
 
@@ -201,6 +337,28 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ).then((_) => _loadCounts()),
                 ),
 
+                const SizedBox(height: 24),
+                Text('REPORT GENERATION',
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(color: AppTheme.inkyNavy),
+                    textAlign: TextAlign.center),
+                const Divider(),
+                const SizedBox(height: 8),
+
+                _dashTile(
+                  icon: Icons.file_download_outlined,
+                  iconColor: AppTheme.inkyNavy,
+                  title: 'LOG OF RECORDS',
+                  subtitle: 'Export data to CSV format',
+                  count: null,
+                  countColor: AppTheme.inkyNavy,
+                  buttonLabel: 'EXPORT LOGS',
+                  filled: true,
+                  onTap: _showExportOptions,
+                ),
+
                 const SizedBox(height: 32),
                 const Divider(),
                 Text(
@@ -222,7 +380,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: color.withOpacity(0.4), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
         ),
         child: Column(
           children: [
@@ -235,7 +393,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
-                    color: color.withOpacity(0.7),
+                    color: color.withValues(alpha: 0.7),
                     letterSpacing: 0.5)),
           ],
         ),

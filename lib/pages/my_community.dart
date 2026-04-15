@@ -4,322 +4,319 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sih/theme/app_theme.dart';
-
+import 'package:sih/widgets/record_card.dart';
 class MyCommunityPage extends StatefulWidget {
   final String? id;
   const MyCommunityPage({super.key, required this.id});
-
   @override
   State<MyCommunityPage> createState() => _MyCommunityPageState();
 }
-
 class _MyCommunityPageState extends State<MyCommunityPage> {
   GoogleMapController? _mapController;
   LatLng? _selectedLocation;
   Set<Marker> _markers = {};
   List<Map<String, dynamic>> _nearbyIssues = [];
-
+  double _searchRadius = 100.0; // Default 100m
+  bool _isLoadingLocation = true;
+  String? _locationError;
   final supabase = Supabase.instance.client;
-
   @override
   void initState() {
     super.initState();
-    _setUserLocation();
+    _handleLocationPermission();
   }
-
-  /// 🔹 Get user location and set map
-  Future<void> _setUserLocation() async {
-    Position pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-    LatLng userLoc = LatLng(pos.latitude, pos.longitude);
-
-    if (mounted) {
-      setState(() {
-        _selectedLocation = userLoc;
-        _markers = {
-          Marker(markerId: const MarkerId("selected"), position: userLoc),
-        };
-      });
-
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(userLoc, 16));
-      await _fetchNearbyIssues(userLoc);
+  Future<void> _handleLocationPermission() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _locationError = null;
+    });
+    bool serviceEnabled;
+    LocationPermission permission;
+    try {
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _locationError = "Location services are disabled. Please turn on GPS to see local reports.";
+            _isLoadingLocation = false;
+          });
+        }
+        return;
+      }
+      permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            setState(() {
+              _locationError = "Location permission denied. We need it to find nearby issues.";
+              _isLoadingLocation = false;
+            });
+          }
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _locationError = "Location permissions are permanently denied. Please enable them in settings.";
+            _isLoadingLocation = false;
+          });
+        }
+        return;
+      }
+      await _setUserLocation();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _locationError = "Could not initialize location: $e";
+          _isLoadingLocation = false;
+        });
+      }
     }
   }
-
-  /// 🔹 Handle map tap (select different location)
+  Future<void> _setUserLocation() async {
+    try {
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      LatLng userLoc = LatLng(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() {
+          _selectedLocation = userLoc;
+          _isLoadingLocation = false;
+          _locationError = null;
+        });
+        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(userLoc, 16));
+        await _fetchNearbyIssues(userLoc);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _locationError = "Failed to get current location. Please try again.";
+          _isLoadingLocation = false;
+        });
+      }
+    }
+  }
   Future<void> _onMapTapped(LatLng tappedPoint) async {
     setState(() {
       _selectedLocation = tappedPoint;
-      _markers = {
-        Marker(markerId: const MarkerId("selected"), position: tappedPoint),
-      };
     });
-
     await _fetchNearbyIssues(tappedPoint);
   }
-
-  /// 🔹 Fetch nearby issues from Supabase
-  Future<void> _fetchNearbyIssues(LatLng location) async {
+  Future<void> _fetchNearbyIssues(LatLng center) async {
     try {
-      // Supabase query to get all issues (flat table)
       final response = await supabase.from('issues').select();
-
       List<Map<String, dynamic>> nearby = [];
-
+      Set<Marker> newMarkers = {
+        Marker(
+          markerId: const MarkerId("user_selection"),
+          position: center,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(title: "Search Center"),
+        ),
+      };
       for (var data in response) {
         final lat = data['latitude']?.toDouble();
         final lng = data['longitude']?.toDouble();
-
+        final status = (data['status'] ?? 'SUBMITTED').toString().toUpperCase();
         if (lat == null || lng == null) continue;
-
-        final distance = _calculateDistance(
-          location.latitude,
-          location.longitude,
-          lat,
-          lng,
-        );
-
-        // Filter for issues within 100 meters
-        if (distance <= 100) {
-          nearby.add({
-            ...data,
-            'distance': distance,
-          });
+        final distance = _calculateDistance(center.latitude, center.longitude, lat, lng);
+        if (distance <= _searchRadius) {
+          nearby.add({...data, 'distance': distance});
+          double hue = BitmapDescriptor.hueBlue;
+          if (status == 'COMPLETED') {
+            hue = BitmapDescriptor.hueGreen;
+          } else if (status == 'IN PROGRESS') {
+            hue = BitmapDescriptor.hueOrange;
+          } else if (status == 'REJECTED') {
+            hue = BitmapDescriptor.hueRed;
+          }
+          newMarkers.add(
+            Marker(
+              markerId: MarkerId(data['id'].toString()),
+              position: LatLng(lat, lng),
+              icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+              infoWindow: InfoWindow(
+                title: data['category'] ?? 'Issue',
+                snippet: '${distance.toStringAsFixed(0)}m away • $status',
+              ),
+            ),
+          );
         }
       }
-
       if (mounted) {
         setState(() {
           _nearbyIssues = nearby;
+          _markers = newMarkers;
         });
       }
     } catch (e) {
-      debugPrint("Error fetching nearby issues: $e");
+      debugPrint("Error: $e");
     }
   }
-
-  /// 🔹 Upvote / Support an issue
-  Future<void> _upvoteIssue(String id, int currentUpvotes, int index) async {
-    try {
-      final newUpvotes = currentUpvotes + 1;
-      
-      // Optimistic UI update
-      setState(() {
-        _nearbyIssues[index]['upvotes'] = newUpvotes;
-      });
-      
-      await supabase
-          .from('issues')
-          .update({'upvotes': newUpvotes})
-          .eq('id', id);
-          
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Support recorded. Priority raised!'), backgroundColor: Colors.teal),
-      );
-    } catch (e) {
-      debugPrint("Upvote error: $e");
-      // Revert optimism if failed
-      setState(() {
-        _nearbyIssues[index]['upvotes'] = currentUpvotes;
-      });
-    }
-  }
-
-  /// 🔹 Distance calculation (Haversine)
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const earthRadius = 6371000; // meters
-    final dLat = _degToRad(lat2 - lat1);
-    final dLon = _degToRad(lon2 - lon1);
-
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degToRad(lat1)) *
-            cos(_degToRad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _degToRad(double degree) => degree * pi / 180;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("LOCAL RECORDS")),
-      body: _selectedLocation == null
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      appBar: AppBar(
+        title: const Text("COMMUNITY MAP"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location, size: 20),
+            onPressed: () {
+              if (_locationError != null) {
+                _handleLocationPermission();
+              } else {
+                _setUserLocation();
+              }
+            },
+          ),
+        ],
+      ),
+      body: _isLoadingLocation
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: AppTheme.inkyNavy),
+                  SizedBox(height: 16),
+                  Text("Seeking location...", style: TextStyle(fontSize: 12, color: AppTheme.pencilGrey, letterSpacing: 1.2)),
+                ],
+              ),
+            )
+          : _locationError != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.location_off_outlined, size: 64, color: AppTheme.pencilGrey),
+                        const SizedBox(height: 24),
+                        Text(
+                          "LOCATION REQUIRED",
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 2.0),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _locationError!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppTheme.pencilGrey, fontSize: 13),
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.inkyNavy,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: const RoundedRectangleBorder(),
+                            ),
+                            onPressed: () => _handleLocationPermission(),
+                            child: const Text("TURN ON & RETRY", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () => Geolocator.openAppSettings(),
+                          child: const Text("OPEN SYSTEM SETTINGS", style: TextStyle(color: AppTheme.inkyNavy, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
               children: [
                 Expanded(
                   flex: 3,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: AppTheme.borderInk, width: 1.0)),
-                    ),
-                    child: GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: _selectedLocation!,
-                        zoom: 16,
+                  child: Stack(
+                    children: [
+                      GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: _selectedLocation ?? const LatLng(0, 0),
+                          zoom: 16,
+                        ),
+                        onMapCreated: (controller) => _mapController = controller,
+                        myLocationEnabled: true,
+                        myLocationButtonEnabled: false,
+                        markers: _markers,
+                        onTap: _onMapTapped,
+                        zoomControlsEnabled: false,
                       ),
-                      onMapCreated: (controller) => _mapController = controller,
-                      myLocationEnabled: true,
-                      markers: _markers,
-                      onTap: _onMapTapped,
-                    ),
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        right: 16,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [100.0, 500.0, 1000.0, 2000.0].map((r) {
+                              final isSelected = _searchRadius == r;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ChoiceChip(
+                                  label: Text('${r.toInt()}m', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppTheme.inkyNavy)),
+                                  selected: isSelected,
+                                  onSelected: (val) {
+                                    if (val) {
+                                      setState(() => _searchRadius = r);
+                                      if (_selectedLocation != null) _fetchNearbyIssues(_selectedLocation!);
+                                    }
+                                  },
+                                  selectedColor: AppTheme.inkyNavy,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.9),
+                                  shape: const RoundedRectangleBorder(),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
+                Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  child: Text(
-                    'RECORDS WITHIN 100M RADIUS',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppTheme.inkyNavy,
-                          fontSize: 10,
-                          letterSpacing: 2.0,
-                        ),
+                  color: AppTheme.paperBackground,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'RECORDS WITHIN ${_searchRadius.toInt()}M',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: AppTheme.inkyNavy,
+                              fontSize: 10,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      Text(
+                        '${_nearbyIssues.length} FOUND',
+                        style: const TextStyle(fontSize: 10, color: AppTheme.pencilGrey, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
                 ),
                 const Divider(height: 1),
                 Expanded(
                   flex: 2,
                   child: _nearbyIssues.isEmpty
-                      ? Center(
-                          child: Text(
-                            "NO LOCAL RECORDS FOUND",
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppTheme.pencilGrey,
-                                  letterSpacing: 1.0,
-                                ),
-                          ),
-                        )
+                      ? Center(child: Text("NO RECORDS IN THIS RADIUS", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.pencilGrey)))
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           itemCount: _nearbyIssues.length,
                           itemBuilder: (context, index) {
                             final issue = _nearbyIssues[index];
-                            final id = issue['id'].toString();
-                            final category = (issue['category'] ?? 'UNCATEGORISED').toString().toUpperCase();
-                            final description = issue['description'] ?? 'No detail provided.';
-                            final distance = issue['distance'] as double;
-                            final imageUrl = issue['image_url'];
-                            final upvotes = (issue['upvotes'] ?? 0) as int;
-                            final status = (issue['status'] ?? 'SUBMITTED').toString().toUpperCase();
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (imageUrl != null && imageUrl.isNotEmpty)
-                                      Container(
-                                        width: 60,
-                                        height: 60,
-                                        margin: const EdgeInsets.only(right: 12),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: AppTheme.borderInk, width: 0.5),
-                                        ),
-                                        child: Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          loadingBuilder: (context, child, loadingProgress) {
-                                            if (loadingProgress == null) return child;
-                                            return Container(
-                                              color: AppTheme.inkyNavy.withOpacity(0.05),
-                                              child: const Center(child: CircularProgressIndicator(strokeWidth: 1)),
-                                            );
-                                          },
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return Container(
-                                              color: AppTheme.inkyNavy.withOpacity(0.05),
-                                              child: const Center(
-                                                child: Icon(Icons.image_not_supported_outlined, size: 16, color: AppTheme.inkyNavy),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                category,
-                                                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 14),
-                                              ),
-                                              Text(
-                                                "${distance.toStringAsFixed(0)}M AWAY",
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            description,
-                                            style: Theme.of(context).textTheme.bodySmall,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(color: AppTheme.borderInk),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  status,
-                                                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                              InkWell(
-                                                onTap: status != 'COMPLETED' ? () => _upvoteIssue(id, upvotes, index) : null,
-                                                borderRadius: BorderRadius.circular(12),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: status == 'COMPLETED' ? Colors.grey.shade200 : AppTheme.inkyNavy.withOpacity(0.05),
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.thumb_up_alt_outlined, 
-                                                        size: 14, 
-                                                        color: status == 'COMPLETED' ? Colors.grey : AppTheme.inkyNavy
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                      Text(
-                                                        '$upvotes Support',
-                                                        style: TextStyle(
-                                                          fontSize: 10, 
-                                                          fontWeight: FontWeight.bold, 
-                                                          color: status == 'COMPLETED' ? Colors.grey : AppTheme.inkyNavy
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              )
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            final distance = '${issue['distance'].toStringAsFixed(0)}m';
+                            return RecordCard(
+                              issue: issue,
+                              compact: true,
+                              distanceLabel: distance,
+                              onTap: () {
+                                _mapController?.animateCamera(CameraUpdate.newLatLng(LatLng(issue['latitude'], issue['longitude'])));
+                              },
                             );
                           },
                         ),
@@ -327,5 +324,12 @@ class _MyCommunityPageState extends State<MyCommunityPage> {
               ],
             ),
     );
+  }
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const earthRadius = 6371000;
+    final dLat = (lat2 - lat1) * pi / 180;
+    final dLon = (lon2 - lon1) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
+    return earthRadius * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 }

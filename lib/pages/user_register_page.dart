@@ -375,7 +375,7 @@ class _UserRegisterPageState extends State<UserRegisterPage> {
                                 decoration: BoxDecoration(
                                   border: Border.all(color: _localPhoto != null ? Colors.green : AppTheme.borderInk, width: 2),
                                   borderRadius: BorderRadius.circular(4),
-                                  color: _localPhoto != null ? Colors.green.withOpacity(0.05) : Colors.white,
+                                  color: _localPhoto != null ? Colors.green.withValues(alpha: 0.05) : Colors.white,
                                 ),
                                 child: Row(
                                   children: [

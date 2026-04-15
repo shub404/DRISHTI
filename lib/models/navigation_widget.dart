@@ -44,7 +44,7 @@ class _NavigationDrawerWIdgetState extends State<NavigationDrawerWIdget> {
                   Text(
                     'OFFICIAL RECORD SYSTEM',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 10,
                       letterSpacing: 1.0,
                     ),
@@ -57,7 +57,7 @@ class _NavigationDrawerWIdgetState extends State<NavigationDrawerWIdget> {
               child: Text(
                 'MAIN MENU',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppTheme.inkyNavy.withOpacity(0.5),
+                  color: AppTheme.inkyNavy.withValues(alpha: 0.5),
                   fontSize: 10,
                 ),
               ),

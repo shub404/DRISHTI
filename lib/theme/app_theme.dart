@@ -59,7 +59,6 @@ class AppTheme {
         primary: inkyNavy,
         secondary: classicCrimson,
         surface: Colors.white,
-        background: paperBackground,
       ),
       textTheme: textTheme,
       

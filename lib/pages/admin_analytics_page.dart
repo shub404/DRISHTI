@@ -168,8 +168,8 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            border: Border.all(color: color.withOpacity(0.4), width: 1.2),
-            color: color.withOpacity(0.04),
+            border: Border.all(color: color.withValues(alpha: 0.4), width: 1.2),
+            color: color.withValues(alpha: 0.04),
           ),
           child: Column(children: [
             Text(value,
@@ -177,7 +177,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 9, color: color.withOpacity(0.7), fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold, letterSpacing: 0.5)),
           ]),
         ),
       );
@@ -213,7 +213,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
                 child: LinearProgressIndicator(
                   value: pct,
                   minHeight: 6,
-                  backgroundColor: s.$2.withOpacity(0.1),
+                  backgroundColor: s.$2.withValues(alpha: 0.1),
                   valueColor: AlwaysStoppedAnimation<Color>(s.$2),
                 ),
               ),
@@ -248,7 +248,7 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
                 child: LinearProgressIndicator(
                   value: pct,
                   minHeight: 8,
-                  backgroundColor: color.withOpacity(0.12),
+                  backgroundColor: color.withValues(alpha: 0.12),
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
@@ -291,14 +291,14 @@ class _AdminAnalyticsPageState extends State<AdminAnalyticsPage> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            border: Border.all(color: color.withOpacity(0.3), width: 1),
-            color: color.withOpacity(0.04),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+            color: color.withValues(alpha: 0.04),
           ),
           child: Row(children: [
             Container(
               width: 28,
               height: 28,
-              decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
               child: Center(child: Text('${i + 1}',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color))),
             ),
