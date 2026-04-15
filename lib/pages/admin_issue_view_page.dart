@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -25,22 +26,43 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
   final Map<String, String> _updatingMap = {};
   final Set<String> _optimisticallyHidden = {}; // Track IDs to hide immediately
   bool _isCategorizing = false;
-  late final Stream<List<Map<String, dynamic>>> _issueStream;
+  Stream<List<Map<String, dynamic>>>? _issueStream;
+  Timer? _reconnectTimer;
 
   @override
   void initState() {
     super.initState();
+    _initStream();
+  }
+
+  @override
+  void dispose() {
+    _reconnectTimer?.cancel();
+    super.dispose();
+  }
+
+  void _initStream() {
     _issueStream = supabase
         .from('issues')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false);
   }
 
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 4), () async {
+      if (!mounted) return;
+      // Wake up the Supabase project before reconnecting
+      try {
+        await supabase.from('issues').select().limit(1);
+      } catch (_) {}
+      if (mounted) setState(() => _initStream());
+    });
+  }
+
   Future<void> _refreshData() async {
-    // Manually triggering a refresh by updating the category (forces StreamBuilder rebuild)
-    setState(() {});
-    // Give it a tiny moment to sync
-    await Future.delayed(const Duration(milliseconds: 500));
+    _reconnectTimer?.cancel();
+    if (mounted) setState(() => _initStream());
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -829,7 +851,9 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _issueStream,
               builder: (context, snapshot) {
-                if (snapshot.hasError) {
+                if (snapshot.hasError ||
+                    snapshot.connectionState == ConnectionState.done) {
+                  _scheduleReconnect();
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -839,20 +863,24 @@ class _AdminIssueViewPageState extends State<AdminIssueViewPage> {
                           const Icon(Icons.cloud_off_outlined,
                               size: 48, color: AppTheme.pencilGrey),
                           const SizedBox(height: 12),
-                          Text(
-                            'Could not load issues.\nCheck Supabase RLS policies.',
+                          const Text(
+                            'Connection lost. Reconnecting…',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppTheme.pencilGrey),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            snapshot.error.toString(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.red),
+                          if (snapshot.hasError) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              snapshot.error.toString(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 10, color: Colors.red),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: _refreshData,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('RETRY NOW'),
                           ),
                         ],
                       ),
