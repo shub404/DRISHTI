@@ -119,36 +119,45 @@ DRISHTI is a full-stack Flutter application built for the FixForward Hackathon. 
 ```
 DRISHTI/
 ├── lib/
-│   ├── main.dart                       # App entry point, Supabase init
+│   ├── main.dart
+│   │
+│   ├── models/
+│   │   ├── issue.dart
+│   │   └── navigation_widget.dart
+│   │
 │   ├── pages/
-│   │   ├── aadhar_login.dart           # Citizen login (PIN + Face ID)
-│   │   ├── user_register_page.dart     # Citizen registration + face capture
-│   │   ├── home_page.dart              # Citizen home screen
-│   │   ├── report_issue_page.dart      # Report new issue
-│   │   ├── track_issue.dart            # Track issue status
-│   │   ├── my_community.dart           # Community issues map/list
+│   │   ├── aadhar_login.dart
+│   │   ├── user_register_page.dart
+│   │   ├── home_page.dart
+│   │   ├── report_issue_page.dart
+│   │   ├── track_issue.dart
+│   │   ├── my_community.dart
 │   │   ├── resolved_issues_page.dart
 │   │   ├── settings_page.dart
-│   │   ├── admin_login_page.dart       # Admin authentication
+│   │   ├── admin_login_page.dart
 │   │   ├── admin_dashboard_page.dart
-│   │   ├── admin_issue_view_page.dart  # Issue management + auto-sort
+│   │   ├── admin_issue_view_page.dart
 │   │   └── admin_analytics_page.dart
+│   │
 │   ├── services/
-│   │   ├── api_service.dart            # CLIP categorisation API calls
-│   │   └── draft_service.dart          # Local draft persistence
-│   └── theme/
-│       └── app_theme.dart              # Global theme (government paper aesthetic)
-│
-├── backend/                            # AI Categorisation backend (HF Space #1)
-│   ├── server.py                       # FastAPI app (/complaint, /categorize)
-│   ├── test.py                         # CLIP model + inference logic
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   ├── api_service.dart
+│   │   ├── draft_service.dart
+│   │   ├── export_service.dart
+│   │   ├── realtime_service.dart
+│   │   └── sync_service.dart
+│   │
+│   ├── theme/
+│   │   └── app_theme.dart
+│   │
+│   └── widgets/
+│       └── record_card.dart
 │
 ├── android/app/src/main/
 │   └── AndroidManifest.xml
+│
 ├── ios/Runner/
 │   └── Info.plist
+│
 └── pubspec.yaml
 ```
 
