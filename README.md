@@ -35,6 +35,25 @@ DRISHTI is a full-stack Flutter application built for the FixForward Hackathon. 
 
 ---
 
+## Demo & Resources
+
+Explore the working prototype of **DRISHTI – Digital Reporting Intelligent Sorting & Holistic Tracking of Issues**.
+
+Google Drive (APK + Demo Videos):  
+https://drive.google.com/drive/folders/1o5LJeULRgarKfWe1B-3vb4DIGFSleG_4
+
+### Contents
+- Android APK – Install and test the app on a real device or emulator
+- Documentation
+- Demo videos – Complete walkthrough of:
+  - Citizen flow (reporting and tracking issues)
+  - Admin dashboard (management and analytics)  
+- Screenshots – Key UI views of the application  
+
+> Note: The APK is a demo/testing build intended for evaluation purposes only.
+
+---
+
 ## Features
 
 ### Citizen
