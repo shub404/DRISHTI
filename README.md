@@ -2,9 +2,7 @@
 
 > **DRISHTI** (दृष्टि) means *vision* in Sanskrit.
 
-> (Digital Reporting Intelligent Sorting & Holistic Tracking of Issues)
-
-> A smart governance tool that lets citizens report civic problems and lets administrators manage, auto-categorise, and resolve them - powered by AI.
+> It stands for *Digital Reporting Intelligent Sorting & Holistic Tracking of Issues*. A smart governance tool that lets citizens report civic problems and lets administrators manage, auto-categorise, and resolve them - powered by AI.
 
 ---
 
