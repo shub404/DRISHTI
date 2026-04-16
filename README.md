@@ -26,7 +26,7 @@
 
 ## Overview
 
-DRISHTI is a full-stack Flutter application built for the **Smart India Hackathon (SIH)**. It bridges the gap between citizens and municipal departments by:
+DRISHTI is a full-stack Flutter application built for the FixForward Hackathon. It bridges the gap between citizens and municipal departments by:
 
 - Letting citizens **report** civic issues (potholes, water leaks, broken streetlights, garbage dumps, etc.) with a photo and GPS location.
 - Using a **CLIP AI model** to automatically categorise images into the correct department.
@@ -304,7 +304,7 @@ Verify a citizen's identity during login. Runs liveness check + 128-dim face com
 
 ## Team
 
-Built for **Smart India Hackathon (SIH)** by **Team Navikarana**.
+Built for **FixForward Hackathon** by **Team Aperture**.
 
 | Name | Role |
 |---|---|
